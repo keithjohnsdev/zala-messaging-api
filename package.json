@@ -16,5 +16,9 @@
     "url": "https://github.com/keithjohnsdev/zala-messaging-api/issues"
   },
   "homepage": "https://github.com/keithjohnsdev/zala-messaging-api#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.3"
+  }
 }
