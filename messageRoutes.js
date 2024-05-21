@@ -82,7 +82,7 @@ router.post("/sendMessage", async (req, res) => {
                         conversationTitle,
                         content,
                         false,
-                        0,
+                        1,
                         senderFullName,
                         recipientFullName
                     ]
