@@ -24,8 +24,6 @@ router.post("/sendMessage", async (req, res) => {
         conversationTitle,
         content,
     } = req.body;
-    console.log("---- recipient id:");
-    console.log(recipientUserId);
 
     try {
         // Check if the sender exists in the users table
@@ -64,7 +62,7 @@ router.post("/sendMessage", async (req, res) => {
             );
         }
 
-        let convoId = conversationId;
+        let convoId = conversationId && Number(conversationId);
 
         // Check if the conversation exists if conversationId is not provided or null
         if (!convoId) {
@@ -90,13 +88,13 @@ router.post("/sendMessage", async (req, res) => {
                 convoId = newConversation.rows[0].conversation_id;
             } else {
                 convoId = conversation.rows[0].conversation_id;
-
-                // Update the latest_message column in the conversations table
-                await db.query(
-                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW() WHERE conversation_id = $4",
-                    [content, senderUserId, false, convoId]
-                );
             }
+        } else {
+            // Update the latest_message column in the conversations table
+            await db.query(
+                "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW() WHERE conversation_id = $4",
+                [content, senderUserId, false, convoId]
+            );
         }
 
         // Insert the message
