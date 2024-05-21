@@ -10,3 +10,6 @@ router.get("/messageStatus", (req, res) => {
 
     res.send(status);
 });
+
+
+module.exports = router;
