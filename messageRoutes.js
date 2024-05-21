@@ -75,14 +75,16 @@ router.post("/sendMessage", async (req, res) => {
                 // Insert the conversation if it doesn't exist
                 console.log("convo doesnt exist, creating new");
                 const newConversation = await db.query(
-                    "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, created_at, updated_at, length) VALUES ($1, $2, $3, $4, $1, $5, $6, NOW(), NOW()) RETURNING conversation_id",
+                    "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, length, user1_name, user2_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, $6, $7, $8, NOW(), NOW()) RETURNING conversation_id",
                     [
                         senderUserId,
                         recipientUserId,
                         conversationTitle,
                         content,
                         false,
-                        0
+                        0,
+                        senderFullName,
+                        recipientFullName
                     ]
                 );
 
