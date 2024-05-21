@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 
+const messageRoutes = require("./messageRoutes");
+
 // Create a new Express application
 const app = express();
 
@@ -81,6 +83,9 @@ app.use(async (req, res, next) => {
 
 // Middleware for parsing JSON bodies
 app.use(express.json());
+
+// Mount the content routes
+app.use("/", messageRoutes);
 
 // Define routes
 
