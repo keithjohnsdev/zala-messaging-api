@@ -24,6 +24,8 @@ router.post("/sendMessage", async (req, res) => {
         conversationTitle,
         content,
     } = req.body;
+    console.log('---- recipient id:')
+    console.log(recipientUserId)
 
     try {
         // Check if the sender exists in the users table
