@@ -147,8 +147,8 @@ router.get("/inbox/:userId", async (req, res) => {
     }
 });
 
-// inbox
-router.get("/inbox/:userId", async (req, res) => {
+// sent
+router.get("/sent/:userId", async (req, res) => {
     const { userId } = req.params;
 
     try {
