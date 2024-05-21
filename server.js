@@ -94,7 +94,7 @@ app.use(async (req, res, next) => {
 });
 
 // Mount the content routes
-app.use("/", messageRoutes);
+// app.use("/", messageRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 3000; // Use the provided port or default to 3000
