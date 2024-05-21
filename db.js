@@ -1,16 +1,27 @@
 const { Pool } = require('pg');
 
-
-// Create a PostgreSQL client pool
-
+// Create a new pool instance using the connection string provided by Heroku
 const pool = new Pool({
-  user: 'your_username',
-  password: 'your_password',
-  host: 'localhost',
-  port: 5432, // default Postgres port
-  database: 'your_database_name'
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // Necessary if using SSL to connect to Heroku Postgres
+  }
 });
 
+// Function to query the database
+async function query(text, params) {
+  const start = Date.now();
+  const client = await pool.connect();
+  try {
+    const res = await client.query(text, params);
+    const duration = Date.now() - start;
+    console.log('Executed query:', { text, duration, rows: res.rowCount });
+    return res;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
-  query: (text, params) => pool.query(text, params)
+  query
 };
