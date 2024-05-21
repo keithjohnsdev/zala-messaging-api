@@ -69,7 +69,7 @@ router.post("/sendMessage", async (req, res) => {
         // Check if the conversation exists if conversationId is not provided or null
         if (!convoId) {
             const conversation = await db.query(
-                "SELECT * FROM conversations WHERE (user1_uuid = $1 AND user2_uuid = $2) OR (user1_uuid = $2 AND user2_uuid = $1) AND title = $3",
+                "SELECT * FROM conversations WHERE ((user1_uuid = $1 AND user2_uuid = $2) OR (user1_uuid = $2 AND user2_uuid = $1)) AND title = $3",
                 [senderUserId, recipientUserId, conversationTitle]
             );
 
