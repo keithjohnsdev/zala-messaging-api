@@ -10,6 +10,9 @@ const app = express();
 // Use cors middleware to handle CORS headers
 app.use(cors());
 
+// Middleware for parsing application/x-www-form-urlencoded bodies
+app.use(express.urlencoded({ extended: true }));
+
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
