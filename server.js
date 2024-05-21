@@ -10,6 +10,18 @@ const app = express();
 // Use cors middleware to handle CORS headers
 app.use(cors());
 
+// Middleware for parsing JSON bodies
+app.use(express.json());
+
+// Status route
+app.get("/status", (req, res) => {
+    const status = {
+        Status: "Running",
+    };
+
+    res.send(status);
+});
+
 // Middleware function to extract user details from JWT
 app.use(async (req, res, next) => {
     console.log("------- auth middleware run");
@@ -81,21 +93,8 @@ app.use(async (req, res, next) => {
     }
 });
 
-// Middleware for parsing JSON bodies
-app.use(express.json());
-
 // Mount the content routes
 app.use("/", messageRoutes);
-
-// Define routes
-
-app.get("/status", (req, res) => {
-    const status = {
-        Status: "Running",
-    };
-
-    res.send(status);
-});
 
 // Start the server
 const PORT = process.env.PORT || 3000; // Use the provided port or default to 3000
