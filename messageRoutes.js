@@ -110,4 +110,23 @@ router.post("/sendMessage", async (req, res) => {
     }
 });
 
+// read message
+router.post("/readMessage", async (req, res) => {
+    const { userId } = req;
+    const { conversationId } = req.body;
+
+    try {
+        // Update the read column to true for the specified conversation
+        await db.query(
+            "UPDATE conversations SET read = true WHERE conversation_id = $1 AND (user1_uuid = $2 OR user2_uuid = $2)",
+            [conversationId, userId]
+        );
+
+        res.status(200).json({ message: "Conversation marked as read" });
+    } catch (error) {
+        console.error("Error marking conversation as read:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 module.exports = router;
