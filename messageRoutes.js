@@ -24,8 +24,8 @@ router.post("/sendMessage", async (req, res) => {
         conversationTitle,
         content,
     } = req.body;
-    console.log('---- recipient id:')
-    console.log(recipientUserId)
+    console.log("---- recipient id:");
+    console.log(recipientUserId);
 
     try {
         // Check if the sender exists in the users table
@@ -78,12 +78,24 @@ router.post("/sendMessage", async (req, res) => {
                 console.log("convo doesnt exist, creating new");
                 const newConversation = await db.query(
                     "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, NOW(), NOW()) RETURNING conversation_id",
-                    [senderUserId, recipientUserId, conversationTitle, content, false]
+                    [
+                        senderUserId,
+                        recipientUserId,
+                        conversationTitle,
+                        content,
+                        false,
+                    ]
                 );
 
                 convoId = newConversation.rows[0].conversation_id;
             } else {
                 convoId = conversation.rows[0].conversation_id;
+
+                // Update the latest_message column in the conversations table
+                await db.query(
+                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW() WHERE conversation_id = $3",
+                    [content, senderUserId, false, convoId]
+                );
             }
         }
 
@@ -91,12 +103,6 @@ router.post("/sendMessage", async (req, res) => {
         await db.query(
             "INSERT INTO messages (conversation_id, sender_uuid, recipient_uuid, content, timestamp) VALUES ($1, $2, $3, $4, NOW())",
             [convoId, senderUserId, recipientUserId, content]
-        );
-
-        // Update the latest_message column in the conversations table
-        await db.query(
-            'UPDATE conversations SET latest_message = $1, read = $2, updated_at = NOW() WHERE conversation_id = $3',
-            [content, false, convoId]
         );
 
         res.status(201).json({ message: "Message sent successfully" });
