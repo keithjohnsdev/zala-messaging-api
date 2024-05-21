@@ -75,13 +75,14 @@ router.post("/sendMessage", async (req, res) => {
                 // Insert the conversation if it doesn't exist
                 console.log("convo doesnt exist, creating new");
                 const newConversation = await db.query(
-                    "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, NOW(), NOW()) RETURNING conversation_id",
+                    "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, created_at, updated_at, length) VALUES ($1, $2, $3, $4, $1, $5, $6, NOW(), NOW()) RETURNING conversation_id",
                     [
                         senderUserId,
                         recipientUserId,
                         conversationTitle,
                         content,
                         false,
+                        0
                     ]
                 );
 
@@ -92,7 +93,7 @@ router.post("/sendMessage", async (req, res) => {
         } else {
             // Update the latest_message column in the conversations table
             await db.query(
-                "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW() WHERE conversation_id = $4",
+                "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
                 [content, senderUserId, false, convoId]
             );
         }
