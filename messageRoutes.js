@@ -147,4 +147,22 @@ router.get("/inbox/:userId", async (req, res) => {
     }
 });
 
+// inbox
+router.get("/inbox/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Select all conversations where the userId is either user1_uuid or user2_uuid and userId is not the latest_message_sender
+        const conversations = await db.query(
+            "SELECT * FROM conversations WHERE (user1_uuid = $1 OR user2_uuid = $1) AND latest_message_sender = $1",
+            [userId]
+        );
+
+        res.status(200).json(conversations.rows);
+    } catch (error) {
+        console.error("Error fetching inbox:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 module.exports = router;
