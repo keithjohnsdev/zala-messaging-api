@@ -93,7 +93,7 @@ router.post("/sendMessage", async (req, res) => {
 
                 // Update the latest_message column in the conversations table
                 await db.query(
-                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW() WHERE conversation_id = $3",
+                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW() WHERE conversation_id = $4",
                     [content, senderUserId, false, convoId]
                 );
             }
