@@ -139,7 +139,7 @@ router.post(
 
                     console.log("Uploading file to S3:", s3Key);
                     await s3.upload({
-                        Bucket: process.env.AWS_S3_BUCKET,
+                        Bucket: process.env.S3_BUCKET_NAME,
                         Key: s3Key,
                         Body: file.buffer,
                         ContentType: file.mimetype,
