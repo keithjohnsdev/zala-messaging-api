@@ -43,13 +43,14 @@ router.post(
             recipientUserId,
             conversationId,
             conversationTitle,
-            content,
+            messageBody,
+            attachedContentJson
         } = req.body;
 
-        console.log("Received request to send message");
-
         const attachedFiles = req.files["files"];
-        console.log("Attached files:", attachedFiles);
+
+        const attachedContent = JSON.parse(attachedContentJson);
+        console.log(attachedContent);
 
         try {
             console.log("Checking if sender exists");
@@ -103,7 +104,7 @@ router.post(
                             senderUserId,
                             recipientUserId,
                             conversationTitle,
-                            content,
+                            messageBody,
                             false,
                             1,
                             senderFullName,
@@ -120,14 +121,14 @@ router.post(
                 console.log("Updating latest message in conversation");
                 await db.query(
                     "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
-                    [content, senderUserId, false, convoId]
+                    [messageBody, senderUserId, false, convoId]
                 );
             }
 
             console.log("Inserting message");
             const messageResult = await db.query(
-                "INSERT INTO messages (conversation_id, sender_uuid, recipient_uuid, content, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING message_id",
-                [convoId, senderUserId, recipientUserId, content]
+                "INSERT INTO messages (conversation_id, sender_uuid, recipient_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING message_id",
+                [convoId, senderUserId, recipientUserId, messageBody, attachedContent]
             );
             const messageId = messageResult.rows[0].message_id;
 
