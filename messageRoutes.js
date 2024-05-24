@@ -49,7 +49,7 @@ router.post(
 
         const attachedFiles = req.files["files"];
 
-        const attachedContent = JSON.parse(attachedContentJson);
+        const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
         console.log(attachedContent);
 
         try {
