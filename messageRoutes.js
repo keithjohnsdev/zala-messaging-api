@@ -205,7 +205,7 @@ router.get("/inbox/:userId", async (req, res) => {
     try {
         // Select all conversations where the userId is either user1_uuid or user2_uuid and length > 1
         const conversations = await db.query(
-            "SELECT * FROM conversations WHERE (user1_uuid = $1 OR user2_uuid = $1) AND length > 1",
+            "SELECT * FROM conversations WHERE (user1_uuid = $1 OR user2_uuid = $1) AND latest_message_sender != $1 OR length > 1",
             [userId]
         );
 
