@@ -98,7 +98,7 @@ router.post(
             let user1ProfilePic, user2ProfilePic;
 
             try {
-                user1ProfilePic = await GetUserAttachments(senderUserId, token);
+                user1ProfilePic = await GetUserProfilePic(senderUserId, token);
             } catch (error) {
                 // If there's an error, log it and set user1ProfilePic to false
                 console.error("Error fetching profile picture:", error);
@@ -106,7 +106,7 @@ router.post(
             }
 
             try {
-                user2ProfilePic = await GetUserAttachments(
+                user2ProfilePic = await GetUserProfilePic(
                     recipientUserId,
                     token
                 );
