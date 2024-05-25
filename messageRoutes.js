@@ -4,7 +4,7 @@ const multer = require("multer");
 const { S3 } = require("aws-sdk");
 const crypto = require("crypto");
 
-import { GetUserAttachments } from "./helperFunctions";
+const { GetUserAttachments } = require("./helperFunctions");
 
 const router = express.Router();
 
