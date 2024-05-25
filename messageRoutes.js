@@ -4,6 +4,8 @@ const multer = require("multer");
 const { S3 } = require("aws-sdk");
 const crypto = require("crypto");
 
+import { GetUserAttachments } from "./helperFunctions";
+
 const router = express.Router();
 
 // Configure multer for handling multipart/form-data
@@ -89,6 +91,24 @@ router.post(
 
             let convoId = conversationId && Number(conversationId);
 
+            let user1ProfilePic, user2ProfilePic;
+
+            try {
+                user1ProfilePic = await GetUserAttachments(senderUserId);
+            } catch (error) {
+                // If there's an error, log it and set user1ProfilePic to false
+                console.error("Error fetching profile picture:", error);
+                user1ProfilePic = "";
+            }
+
+            try {
+                user2ProfilePic = await GetUserAttachments(recipientUserId);
+            } catch (error) {
+                // If there's an error, log it and set user1ProfilePic to false
+                console.error("Error fetching profile picture:", error);
+                user2ProfilePic = "";
+            }
+
             if (!convoId) {
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
@@ -99,7 +119,7 @@ router.post(
                 if (conversation.rowCount === 0) {
                     console.log("Conversation does not exist, creating new conversation");
                     const newConversation = await db.query(
-                        "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, length, user1_name, user2_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, $6, $7, $8, NOW(), NOW()) RETURNING conversation_id",
+                        "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, length, user1_name, user2_name, user1_profile_pic, user2_profile_pic, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, $6, $7, $8, $9, $10, NOW(), NOW()) RETURNING conversation_id",
                         [
                             senderUserId,
                             recipientUserId,
@@ -109,6 +129,8 @@ router.post(
                             1,
                             senderFullName,
                             recipientFullName,
+                            user1ProfilePic,
+                            user2ProfilePic
                         ]
                     );
 
