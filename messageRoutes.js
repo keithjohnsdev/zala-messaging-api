@@ -38,6 +38,7 @@ router.post(
             userId: senderUserId,
             userFullName: senderFullName,
             userEmail: senderEmail,
+            token
         } = req;
         const {
             recipientFullName,
@@ -96,7 +97,7 @@ router.post(
             let user1ProfilePic, user2ProfilePic;
 
             try {
-                user1ProfilePic = await GetUserAttachments(senderUserId);
+                user1ProfilePic = await GetUserAttachments(senderUserId, token);
             } catch (error) {
                 // If there's an error, log it and set user1ProfilePic to false
                 console.error("Error fetching profile picture:", error);
@@ -104,7 +105,7 @@ router.post(
             }
 
             try {
-                user2ProfilePic = await GetUserAttachments(recipientUserId);
+                user2ProfilePic = await GetUserAttachments(recipientUserId, token);
             } catch (error) {
                 // If there's an error, log it and set user1ProfilePic to false
                 console.error("Error fetching profile picture:", error);
@@ -263,7 +264,7 @@ router.get("/sent/:userId", async (req, res) => {
 
 //----- Helper Functions
 
-async function GetUserAttachments(userId) {
+async function GetUserAttachments(userId, token) {
     let response = await axios.post(
         "https://zala-stg.herokuapp.com/gql",
         {

@@ -81,6 +81,7 @@ app.use(async (req, res, next) => {
             req.userId = userId;
             req.userFullName = userFullName;
             req.userEmail = userEmail;
+            req.token = token;
 
             // Continue to the next middleware or route handler
             next();
