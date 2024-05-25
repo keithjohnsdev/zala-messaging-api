@@ -1,4 +1,4 @@
-export async function GetUserAttachments(userId) {
+async function GetUserAttachments(userId) {
     let response = await axios.post(
         "https://zala-stg.herokuapp.com/gql",
         {
