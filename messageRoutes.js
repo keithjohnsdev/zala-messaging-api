@@ -44,10 +44,13 @@ router.post(
             recipientFullName,
             recipientUserId,
             conversationId,
-            conversationTitle,
-            messageBody,
+            title,
+            message,
             attachedContentJson
         } = req.body;
+
+        const conversationTitle = title;
+        const messageBody = message;
 
         const attachedFiles = req.files["files"];
 
