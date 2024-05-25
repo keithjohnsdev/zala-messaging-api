@@ -38,7 +38,7 @@ router.post(
             userId: senderUserId,
             userFullName: senderFullName,
             userEmail: senderEmail,
-            token
+            token,
         } = req;
         const {
             recipientFullName,
@@ -46,7 +46,7 @@ router.post(
             conversationId,
             title,
             message,
-            attachedContentJson
+            attachedContentJson,
         } = req.body;
 
         const conversationTitle = title;
@@ -54,7 +54,8 @@ router.post(
 
         const attachedFiles = req.files["files"];
 
-        const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
+        const attachedContent =
+            attachedContentJson && JSON.parse(attachedContentJson);
         console.log(attachedContent);
 
         try {
@@ -105,7 +106,10 @@ router.post(
             }
 
             try {
-                user2ProfilePic = await GetUserAttachments(recipientUserId, token);
+                user2ProfilePic = await GetUserAttachments(
+                    recipientUserId,
+                    token
+                );
             } catch (error) {
                 // If there's an error, log it and set user1ProfilePic to false
                 console.error("Error fetching profile picture:", error);
@@ -120,7 +124,9 @@ router.post(
                 );
 
                 if (conversation.rowCount === 0) {
-                    console.log("Conversation does not exist, creating new conversation");
+                    console.log(
+                        "Conversation does not exist, creating new conversation"
+                    );
                     const newConversation = await db.query(
                         "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, length, user1_name, user2_name, user1_profile_pic, user2_profile_pic, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, $6, $7, $8, $9, $10, NOW(), NOW()) RETURNING conversation_id",
                         [
@@ -133,7 +139,7 @@ router.post(
                             senderFullName,
                             recipientFullName,
                             user1ProfilePic,
-                            user2ProfilePic
+                            user2ProfilePic,
                         ]
                     );
 
@@ -153,23 +159,34 @@ router.post(
             console.log("Inserting message");
             const messageResult = await db.query(
                 "INSERT INTO messages (conversation_id, sender_uuid, recipient_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING message_id",
-                [convoId, senderUserId, recipientUserId, messageBody, attachedContent]
+                [
+                    convoId,
+                    senderUserId,
+                    recipientUserId,
+                    messageBody,
+                    attachedContent,
+                ]
             );
             const messageId = messageResult.rows[0].message_id;
 
             if (attachedFiles && attachedFiles.length > 0) {
                 console.log("Processing attached files");
                 for (const file of attachedFiles) {
-                    const hash = crypto.createHash("sha256").update(file.buffer).digest("hex");
+                    const hash = crypto
+                        .createHash("sha256")
+                        .update(file.buffer)
+                        .digest("hex");
                     const s3Key = `uploads/${hash}-${file.originalname}`;
 
                     console.log("Uploading file to S3:", s3Key);
-                    await s3.upload({
-                        Bucket: process.env.S3_BUCKET_NAME,
-                        Key: s3Key,
-                        Body: file.buffer,
-                        ContentType: file.mimetype,
-                    }).promise();
+                    await s3
+                        .upload({
+                            Bucket: process.env.S3_BUCKET_NAME,
+                            Key: s3Key,
+                            Body: file.buffer,
+                            ContentType: file.mimetype,
+                        })
+                        .promise();
 
                     console.log("Inserting file metadata into files table");
                     const fileResult = await db.query(
@@ -188,7 +205,9 @@ router.post(
                         fileId = existingFile.rows[0].file_id;
                     }
 
-                    console.log("Linking file to message in message_files table");
+                    console.log(
+                        "Linking file to message in message_files table"
+                    );
                     await db.query(
                         "INSERT INTO message_files (message_id, file_id, created_at) VALUES ($1, $2, NOW())",
                         [messageId, fileId]
@@ -259,12 +278,9 @@ router.get("/sent/:userId", async (req, res) => {
     }
 });
 
-
-
-
 //----- Helper Functions
 
-async function GetUserAttachments(userId, token) {
+async function GetUserProfilePic(userId, token) {
     let response = await axios.post(
         "https://zala-stg.herokuapp.com/gql",
         {
@@ -291,8 +307,18 @@ async function GetUserAttachments(userId, token) {
         }
     );
 
-    // If the request is successful, assign the response data to user1ProfilePic
-    return response.data.data.user.attachments;
+    const profilePictures = response.data.data.user.attachments.filter(
+        (attachment) => attachment.label === "profile_picture"
+    );
+
+    if (profilePictures.length > 0) {
+        const sortedProfilePictures = profilePictures.sort(
+            (a, b) => parseInt(b.id) - parseInt(a.id)
+        );
+        return sortedProfilePictures[0].contentUrl;
+    } else {
+        return profilePictures[0].contentUrl;
+    }
 }
 
 module.exports = router;
