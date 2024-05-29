@@ -95,6 +95,13 @@ router.post(
 
             let convoId = conversationId && Number(conversationId);
 
+            function stripHTML(html) {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                return doc.body.textContent || "";
+            }
+            
+            let messageBodyStrippedHTML = stripHTML(messageBody);
+
             if (!convoId) {
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
@@ -112,7 +119,7 @@ router.post(
                             senderUserId,
                             recipientUserId,
                             conversationTitle,
-                            messageBody,
+                            messageBodyStrippedHTML,
                             false,
                             1,
                             senderFullName,
