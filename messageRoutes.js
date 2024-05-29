@@ -39,7 +39,6 @@ router.post(
             userId: senderUserId,
             userFullName: senderFullName,
             userEmail: senderEmail,
-            token,
         } = req;
         const {
             recipientFullName,
@@ -262,5 +261,24 @@ router.get("/sent/:userId", async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
+
+// load conversation
+router.get("/conversation/:conversationId", async (req, res) => {
+    const { conversationId } = req.params;
+
+    try {
+        // Select all messages matching conversation id and sort by timestamp ascending
+        const messages = await db.query(
+            "SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC",
+            [conversationId]
+        );
+
+        res.status(200).json(messages.rows);
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 
 module.exports = router;
