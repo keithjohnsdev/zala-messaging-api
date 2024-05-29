@@ -268,17 +268,51 @@ router.get("/conversation/:conversationId", async (req, res) => {
 
     try {
         // Select all messages matching conversation id and sort by timestamp ascending
-        const messages = await db.query(
+        const messagesResult = await db.query(
             "SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC",
             [conversationId]
         );
 
-        res.status(200).json(messages.rows);
+        const messages = messagesResult.rows;
+
+        // Iterate through messages to find and add attached files
+        for (const message of messages) {
+            const messageId = message.message_id;
+
+            // Find file_ids linked to the message
+            const messageFilesResult = await db.query(
+                "SELECT file_id FROM message_files WHERE message_id = $1",
+                [messageId]
+            );
+            const fileIds = messageFilesResult.rows.map(row => row.file_id);
+            message.files = fileIds;
+
+            // Find file_paths for each file_id
+            if (fileIds.length > 0) {
+                const filePaths = [];
+                for (const fileId of fileIds) {
+                    // Generate S3 URL for each file
+                    const params = {
+                        Bucket: process.env.S3_BUCKET_NAME,
+                        Key: `uploads/${fileId}`, // Adjust the Key as needed
+                        Expires: 3600, // URL expiration time in seconds (adjust as needed)
+                    };
+                    const url = s3.getSignedUrl("getObject", params);
+                    filePaths.push(url);
+                }
+                message.file_paths = filePaths;
+            } else {
+                message.file_paths = [];
+            }
+        }
+
+        res.status(200).json(messages);
     } catch (error) {
         console.error("Error fetching messages:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
+
 
 
 module.exports = router;
