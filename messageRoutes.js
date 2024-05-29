@@ -215,7 +215,7 @@ router.post("/readMessage/:conversationId", async (req, res) => {
     try {
         // Update the read column to true for the specified conversation
         await db.query(
-            "UPDATE conversations SET read = true WHERE conversation_id = $1 AND (latest_message_sender != $2)",
+            "UPDATE conversations SET read = true WHERE conversation_id = $1 AND latest_message_sender != $2",
             [conversationId, userId]
         );
 
