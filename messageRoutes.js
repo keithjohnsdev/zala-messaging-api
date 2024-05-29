@@ -4,7 +4,7 @@ const multer = require("multer");
 const { S3 } = require("aws-sdk");
 const crypto = require("crypto");
 const axios = require("axios");
-const cheerio = require('cheerio');
+const cheerio = require("cheerio");
 
 const router = express.Router();
 
@@ -97,9 +97,9 @@ router.post(
 
             function stripHTML(html) {
                 const $ = cheerio.load(html);
-                return $('body').text();
+                return $("body").text();
             }
-            
+
             let messageBodyStrippedHTML = stripHTML(messageBody);
 
             if (!convoId) {
@@ -123,7 +123,7 @@ router.post(
                             false,
                             1,
                             senderFullName,
-                            recipientFullName
+                            recipientFullName,
                         ]
                     );
 
@@ -284,21 +284,29 @@ router.get("/conversation/:conversationId", async (req, res) => {
                 "SELECT file_id FROM message_files WHERE message_id = $1",
                 [messageId]
             );
-            const fileIds = messageFilesResult.rows.map(row => row.file_id);
+            const fileIds = messageFilesResult.rows.map((row) => row.file_id);
             message.files = fileIds;
 
             // Find file_paths for each file_id
             if (fileIds.length > 0) {
                 const filePaths = [];
                 for (const fileId of fileIds) {
-                    // Generate S3 URL for each file
-                    const params = {
-                        Bucket: process.env.S3_BUCKET_NAME,
-                        Key: `uploads/${fileId}`, // Adjust the Key as needed
-                        Expires: 3600, // URL expiration time in seconds (adjust as needed)
-                    };
-                    const url = s3.getSignedUrl("getObject", params);
-                    filePaths.push(url);
+                    // Query the files table to get the file_path for the fileId
+                    const fileQueryResult = await db.query(
+                        "SELECT file_path FROM files WHERE file_id = $1",
+                        [fileId]
+                    );
+                    if (fileQueryResult.rows.length > 0) {
+                        const filePath = fileQueryResult.rows[0].file_path;
+                        // Generate S3 URL for the file
+                        const params = {
+                            Bucket: process.env.S3_BUCKET_NAME,
+                            Key: filePath,
+                            Expires: 3600, // URL expiration time in seconds (adjust as needed)
+                        };
+                        const url = s3.getSignedUrl("getObject", params);
+                        filePaths.push(url);
+                    }
                 }
                 message.file_paths = filePaths;
             } else {
@@ -312,7 +320,5 @@ router.get("/conversation/:conversationId", async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
-
-
 
 module.exports = router;
