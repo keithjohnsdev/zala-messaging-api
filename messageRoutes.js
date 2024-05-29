@@ -208,9 +208,9 @@ router.post(
 );
 
 // read message
-router.post("/readMessage", async (req, res) => {
+router.post("/readMessage/:conversationId", async (req, res) => {
     const { userId } = req;
-    const { conversationId } = req.body;
+    const { conversationId } = req.params;
 
     try {
         // Update the read column to true for the specified conversation
