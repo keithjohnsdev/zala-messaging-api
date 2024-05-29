@@ -95,27 +95,6 @@ router.post(
 
             let convoId = conversationId && Number(conversationId);
 
-            let user1ProfilePic, user2ProfilePic;
-
-            try {
-                user1ProfilePic = await GetUserProfilePic(senderUserId, token);
-            } catch (error) {
-                // If there's an error, log it and set user1ProfilePic to false
-                console.error("Error fetching profile picture:", error);
-                user1ProfilePic = "";
-            }
-
-            try {
-                user2ProfilePic = await GetUserProfilePic(
-                    recipientUserId,
-                    token
-                );
-            } catch (error) {
-                // If there's an error, log it and set user1ProfilePic to false
-                console.error("Error fetching profile picture:", error);
-                user2ProfilePic = "";
-            }
-
             if (!convoId) {
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
@@ -128,7 +107,7 @@ router.post(
                         "Conversation does not exist, creating new conversation"
                     );
                     const newConversation = await db.query(
-                        "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, length, user1_name, user2_name, user1_profile_pic, user2_profile_pic, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, $6, $7, $8, $9, $10, NOW(), NOW()) RETURNING conversation_id",
+                        "INSERT INTO conversations (user1_uuid, user2_uuid, title, latest_message, latest_message_sender, read, length, user1_name, user2_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $1, $5, $6, $7, $8, NOW(), NOW()) RETURNING conversation_id",
                         [
                             senderUserId,
                             recipientUserId,
@@ -137,9 +116,7 @@ router.post(
                             false,
                             1,
                             senderFullName,
-                            recipientFullName,
-                            user1ProfilePic,
-                            user2ProfilePic,
+                            recipientFullName
                         ]
                     );
 
@@ -277,48 +254,5 @@ router.get("/sent/:userId", async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
-
-//----- Helper Functions
-
-async function GetUserProfilePic(userId, token) {
-    let response = await axios.post(
-        "https://zala-stg.herokuapp.com/gql",
-        {
-            query: `
-            query GetUserAttachments($userId: ID!) {
-                user(id: $userId) {
-                    attachments(labels: ["profile_picture"]) {
-                        id
-                        label
-                        contentUrl
-                    }
-                }
-            }
-            `,
-            variables: {
-                userId: userId, // Pass the userId variable here
-            },
-        },
-        {
-            headers: {
-                Authorization: token,
-                "Content-Type": "application/json",
-            },
-        }
-    );
-
-    const profilePictures = response.data.data.user.attachments.filter(
-        (attachment) => attachment.label === "profile_picture"
-    );
-
-    if (profilePictures.length > 0) {
-        const sortedProfilePictures = profilePictures.sort(
-            (a, b) => parseInt(b.id) - parseInt(a.id)
-        );
-        return sortedProfilePictures[0].contentUrl;
-    } else {
-        return profilePictures[0].contentUrl;
-    }
-}
 
 module.exports = router;
