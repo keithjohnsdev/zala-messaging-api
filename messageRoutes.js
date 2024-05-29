@@ -4,6 +4,7 @@ const multer = require("multer");
 const { S3 } = require("aws-sdk");
 const crypto = require("crypto");
 const axios = require("axios");
+const cheerio = require('cheerio');
 
 const router = express.Router();
 
@@ -96,8 +97,8 @@ router.post(
             let convoId = conversationId && Number(conversationId);
 
             function stripHTML(html) {
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                return doc.body.textContent || "";
+                const $ = cheerio.load(html);
+                return $('body').text();
             }
             
             let messageBodyStrippedHTML = stripHTML(messageBody);
