@@ -293,18 +293,19 @@ router.get("/conversation/:conversationId", async (req, res) => {
                 [messageId]
             );
             const fileIds = messageFilesResult.rows.map((row) => row.file_id);
-            message.files = fileIds;
+            message.file_ids = fileIds;
 
             // Find file_paths for each file_id
             if (fileIds.length > 0) {
-                const filePaths = [];
+                const files = [];
                 for (const fileId of fileIds) {
                     // Query the files table to get the file_path for the fileId
                     const fileQueryResult = await db.query(
-                        "SELECT file_path FROM files WHERE file_id = $1",
+                        "SELECT file_path, file_name FROM files WHERE file_id = $1",
                         [fileId]
                     );
                     if (fileQueryResult.rows.length > 0) {
+                        const fileName = fileQueryResult.rows[0].file_name;
                         const filePath = fileQueryResult.rows[0].file_path;
                         // Generate S3 URL for the file
                         const params = {
@@ -313,12 +314,12 @@ router.get("/conversation/:conversationId", async (req, res) => {
                             Expires: 3600, // URL expiration time in seconds (adjust as needed)
                         };
                         const url = s3.getSignedUrl("getObject", params);
-                        filePaths.push(url);
+                        files.push({fileName, url});
                     }
                 }
-                message.file_paths = filePaths;
+                message.files = files;
             } else {
-                message.file_paths = [];
+                message.files = [];
             }
         }
 
