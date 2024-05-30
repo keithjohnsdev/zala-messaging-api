@@ -325,7 +325,7 @@ router.get("/conversation/:conversationId", async (req, res) => {
                 message.files = [];
             }
 
-            if (attached_content?.length > 0) {
+            if (messages.attached_content?.length > 0) {
                 messages.content = fetchContentItems(attached_content, token);
             }
         }
