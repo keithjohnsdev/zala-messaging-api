@@ -4,6 +4,7 @@ const multer = require("multer");
 const { S3 } = require("aws-sdk");
 const crypto = require("crypto");
 const cheerio = require("cheerio");
+const axios = require("axios");
 
 const router = express.Router();
 
@@ -237,8 +238,11 @@ router.get("/inbox/:userId", async (req, res) => {
         );
 
         // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = conversations.rows.map(conversation => {
-            if (!conversation.read && conversation.latest_message_sender === userId) {
+        const modifiedConversations = conversations.rows.map((conversation) => {
+            if (
+                !conversation.read &&
+                conversation.latest_message_sender === userId
+            ) {
                 conversation.read = true;
             }
             return conversation;
@@ -250,7 +254,6 @@ router.get("/inbox/:userId", async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
-
 
 // sent
 router.get("/sent/:userId", async (req, res) => {
@@ -273,6 +276,7 @@ router.get("/sent/:userId", async (req, res) => {
 // load conversation
 router.get("/conversation/:conversationId", async (req, res) => {
     const { conversationId } = req.params;
+    const token = req.token;
 
     try {
         // Select all messages matching conversation id and sort by timestamp ascending
@@ -313,12 +317,16 @@ router.get("/conversation/:conversationId", async (req, res) => {
                             Expires: 3600, // URL expiration time in seconds (adjust as needed)
                         };
                         const url = s3.getSignedUrl("getObject", params);
-                        files.push({fileId, fileName, url});
+                        files.push({ fileId, fileName, url });
                     }
                 }
                 message.files = files;
             } else {
                 message.files = [];
+            }
+
+            if (attached_content?.length > 0) {
+                messages.content = fetchContentItems(attached_content, token);
             }
         }
 
@@ -328,5 +336,35 @@ router.get("/conversation/:conversationId", async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
+
+// Helper Functions
+
+async function fetchContentItems(contentIds, token) {
+    try {
+        const response = await axios.post(
+            "https://content-microservice-stg-613843a26cb6.herokuapp.com/content/ids",
+            {
+                contentIds: contentIds,
+            },
+            {
+                headers: {
+                    Authorization: token,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (response.data.length > 0) {
+            return response.data;
+        } else {
+            console.log("No content items found.");
+        }
+    } catch (error) {
+        console.error(
+            "Error fetching content items:",
+            error.response ? error.response.data : error.message
+        );
+    }
+}
 
 module.exports = router;
