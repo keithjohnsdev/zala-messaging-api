@@ -293,7 +293,6 @@ router.get("/conversation/:conversationId", async (req, res) => {
                 [messageId]
             );
             const fileIds = messageFilesResult.rows.map((row) => row.file_id);
-            message.file_ids = fileIds;
 
             // Find file_paths for each file_id
             if (fileIds.length > 0) {
@@ -314,7 +313,7 @@ router.get("/conversation/:conversationId", async (req, res) => {
                             Expires: 3600, // URL expiration time in seconds (adjust as needed)
                         };
                         const url = s3.getSignedUrl("getObject", params);
-                        files.push({fileName, url});
+                        files.push({fileId, fileName, url});
                     }
                 }
                 message.files = files;
