@@ -330,7 +330,7 @@ router.get("/conversation/:conversationId", async (req, res) => {
 
             if (message.attached_content?.length > 0) {
                 console.log("content found, querying content api")
-                messages.content = fetchContentItems(attached_content, token);
+                messages.content = fetchContentItems(message.attached_content, token);
             }
         }
 
