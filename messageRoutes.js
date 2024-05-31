@@ -266,7 +266,18 @@ router.get("/sent/:userId", async (req, res) => {
             [userId]
         );
 
-        res.status(200).json(conversations.rows);
+        // Modify the conversations to mark them as read if the user was the last sender
+        const modifiedConversations = conversations.rows.map((conversation) => {
+            if (
+                !conversation.read &&
+                conversation.latest_message_sender === userId
+            ) {
+                conversation.read = true;
+            }
+            return conversation;
+        });
+
+        res.status(200).json(modifiedConversations);
     } catch (error) {
         console.error("Error fetching inbox:", error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -326,7 +337,10 @@ router.get("/conversation/:conversationId", async (req, res) => {
             }
 
             if (message.attached_content?.length > 0) {
-                message.content = await fetchContentItems(message.attached_content, token);
+                message.content = await fetchContentItems(
+                    message.attached_content,
+                    token
+                );
             }
         }
 
