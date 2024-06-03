@@ -386,7 +386,6 @@ router.post("/conversation/delete/:conversationId", async (req, res) => {
         );
 
         const fileIds = filesResult.rows.map(row => row.file_id);
-        const filePaths = filesResult.rows.map(row => row.file_path);
 
         // Delete the conversation (cascades to delete messages and message_files)
         await db.query("DELETE FROM conversations WHERE conversation_id = $1", [conversationId]);
@@ -396,7 +395,7 @@ router.post("/conversation/delete/:conversationId", async (req, res) => {
             `SELECT f.file_id, f.file_path 
              FROM files f 
              LEFT JOIN message_files mf ON f.file_id = mf.file_id 
-             WHERE f.file_id = ANY($1::uuid[]) AND mf.file_id IS NULL`,
+             WHERE f.file_id = ANY($1::int[]) AND mf.file_id IS NULL`,
             [fileIds]
         );
 
