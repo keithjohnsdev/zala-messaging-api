@@ -50,7 +50,7 @@ router.post(
         } = req.body;
 
         const conversationTitle = title;
-        const messageBody = message;
+        const messageBody = message === "null" ? "" : message;
 
         const attachedFiles = req.files["files"];
 
