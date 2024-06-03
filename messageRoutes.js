@@ -367,6 +367,22 @@ router.get("/conversation/:conversationId", async (req, res) => {
     }
 });
 
+//delete conversation
+router.post("/conversation/delete/:conversationId", async (req, res) => {
+    const { conversationId } = req.params;
+    const token = req.token;
+
+    try {
+        // Delete the conversation with the specified conversationId
+        await db.query("DELETE FROM conversations WHERE conversation_id = $1", [conversationId]);
+
+        res.status(200).json({ message: "Conversation deleted successfully" });
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 // Helper Functions
 
 async function fetchContentItems(contentIds, token) {
