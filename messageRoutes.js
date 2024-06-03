@@ -370,15 +370,60 @@ router.get("/conversation/:conversationId", async (req, res) => {
 //delete conversation
 router.post("/conversation/delete/:conversationId", async (req, res) => {
     const { conversationId } = req.params;
-    const token = req.token;
 
     try {
-        // Delete the conversation with the specified conversationId
+        // Start a transaction
+        await db.query("BEGIN");
+
+        // Get file_ids and file_paths before deleting the conversation
+        const filesResult = await db.query(
+            `SELECT f.file_id, f.file_path 
+             FROM files f
+             INNER JOIN message_files mf ON f.file_id = mf.file_id
+             INNER JOIN messages m ON mf.message_id = m.message_id
+             WHERE m.conversation_id = $1`,
+            [conversationId]
+        );
+
+        const fileIds = filesResult.rows.map(row => row.file_id);
+        const filePaths = filesResult.rows.map(row => row.file_path);
+
+        // Delete the conversation (cascades to delete messages and message_files)
         await db.query("DELETE FROM conversations WHERE conversation_id = $1", [conversationId]);
 
-        res.status(200).json({ message: "Conversation deleted successfully" });
+        // Check if the file_ids are still referenced in the message_files table
+        const unreferencedFilesResult = await db.query(
+            `SELECT f.file_id, f.file_path 
+             FROM files f 
+             LEFT JOIN message_files mf ON f.file_id = mf.file_id 
+             WHERE f.file_id = ANY($1::uuid[]) AND mf.file_id IS NULL`,
+            [fileIds]
+        );
+
+        const unreferencedFiles = unreferencedFilesResult.rows;
+
+        // Delete unreferenced files from S3 and the files table
+        for (const file of unreferencedFiles) {
+            const params = {
+                Bucket: process.env.S3_BUCKET_NAME,
+                Key: file.file_path
+            };
+
+            // Delete file from S3
+            await s3.deleteObject(params).promise();
+
+            // Delete file record from files table
+            await db.query("DELETE FROM files WHERE file_id = $1", [file.file_id]);
+        }
+
+        // Commit transaction
+        await db.query("COMMIT");
+
+        res.status(200).json({ message: "Conversation and related files deleted successfully" });
     } catch (error) {
-        console.error("Error fetching messages:", error);
+        // Rollback transaction in case of error
+        await db.query("ROLLBACK");
+        console.error("Error deleting conversation:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
