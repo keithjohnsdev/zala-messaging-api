@@ -451,6 +451,10 @@ router.post(
         const conversationTitle = title;
         const messageBody = message === "null" ? "" : message;
         usersArray = users && JSON.parse(users); // handled
+        // Extract UUIDs from user objects
+        const uuids = usersArray.map(user => user.uuid);
+        // Sort UUIDs
+        const sortedIds = uuids.sort();
         const attachedFiles = req.files["files"];
         const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
 
@@ -508,23 +512,13 @@ router.post(
 
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
-                    `WITH provided_users AS (
-    SELECT $1::jsonb AS users
-)
-SELECT *
-FROM conversations
-WHERE title = $2
-AND (
-    users IS NOT NULL
-    AND (
-        SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
-        FROM jsonb_array_elements(users) AS users_element
-    ) = (
-        SELECT array_agg(conversations_users->>'uuid' ORDER BY conversations_users->>'uuid')
-        FROM jsonb_array_elements(conversations.users) AS conversations_users
-    )
-);`,
-                    [JSON.stringify(users), conversationTitle]
+                    `
+                    SELECT * 
+                    FROM conversations 
+                    WHERE title = $1 
+                    AND sorted_uuids = $2
+                    `,
+                    [conversationTitle, JSON.stringify(sortedIds)]
                 );
 
                 if (conversation.rowCount === 0) {
