@@ -245,6 +245,14 @@ router.post("/readMessage/:conversationId", async (req, res) => {
 // inbox
 router.get("/inbox/:userId", async (req, res) => {
     const { userId } = req.params;
+    const {
+        userId: userIdSession
+    } = req;
+
+    if (userId !== userIdSession) {
+        console.error("Error fetching inbox: not authorized to view another user's inbox");
+        res.status(401).json({ error: "Not authorized to view another user's inbox" });
+    }
 
     try {
         // Select all conversations where the userId is either user1_uuid or user2_uuid and length > 1
@@ -274,6 +282,14 @@ router.get("/inbox/:userId", async (req, res) => {
 // sent
 router.get("/sent/:userId", async (req, res) => {
     const { userId } = req.params;
+    const {
+        userId: userIdSession
+    } = req;
+
+    if (userId !== userIdSession) {
+        console.error("Error fetching inbox: not authorized to view another user's inbox");
+        res.status(401).json({ error: "Not authorized to view another user's inbox" });
+    }
 
     try {
         // Select all conversations where the userId is either user1_uuid or user2_uuid and userId is not the latest_message_sender
@@ -557,7 +573,7 @@ router.post(
                     );
                 } else {
                     console.log("Conversation found");
-                    recipientUserId = conversation.rows[0].user1_uuid === senderUserId ? conversation.rows[0].user2_uuid : conversation.rows[0].user1_uuid;
+                    // recipientUserId = conversation.rows[0].user1_uuid === senderUserId ? conversation.rows[0].user2_uuid : conversation.rows[0].user1_uuid;
                 }
 
                 console.log("Updating latest message in conversation");
@@ -569,11 +585,11 @@ router.post(
 
             console.log("Inserting message");
             const messageResult = await db.query(
-                "INSERT INTO messages (conversation_id, sender_uuid, recipient_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING message_id",
+                "INSERT INTO messages (conversation_id, sender_uuid, users, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING message_id",
                 [
                     convoId,
                     senderUserId,
-                    recipientUserId,
+                    usersArray,
                     messageBody,
                     attachedContent,
                 ]
