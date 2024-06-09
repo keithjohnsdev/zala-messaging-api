@@ -450,7 +450,7 @@ router.post(
 
         const conversationTitle = title;
         const messageBody = message === "null" ? "" : message;
-        users = users && JSON.parse(users); //-- handled
+        // users = users && JSON.parse(users);
         const attachedFiles = req.files["files"];
         const attachedContent =
             attachedContentJson && JSON.parse(attachedContentJson);
