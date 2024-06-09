@@ -689,7 +689,7 @@ router.get("/messages", async (req, res) => {
         );
 
         // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = addReadField(conversations);
+        const modifiedConversations = addReadField(conversations, userId);
 
         res.status(200).json(modifiedConversations);
     } catch (error) {
@@ -710,7 +710,7 @@ router.get("/inboxUsers", async (req, res) => {
         );
 
         // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = addReadField(conversations);
+        const modifiedConversations = addReadField(conversations, userId);
 
         res.status(200).json(modifiedConversations);
     } catch (error) {
@@ -755,7 +755,7 @@ function arrayToPostgresArray(array) {
     return correctedArray;
 }
 
-function addReadField (conversations) {
+function addReadField (conversations, userId) {
     let newConversationsArray = conversations.rows.map((conversation) => {
         if (
             conversation.read_by?.includes(userId) ||
