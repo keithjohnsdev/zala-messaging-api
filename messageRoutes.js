@@ -536,15 +536,14 @@ router.post(
                         "Conversation does not exist, creating new conversation"
                     );
                     const newConversation = await db.query(
-                        "INSERT INTO conversations (users, title, latest_message, latest_message_sender, length, sorted_uuids, read_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING conversation_id",
+                        "INSERT INTO conversations (users, title, latest_message, latest_message_sender, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING conversation_id",
                         [
                             usersArray,
                             conversationTitle,
                             messageBodyStrippedHTML,
                             senderUserId,
                             1,
-                            sortedIds,
-                            []
+                            sortedIds
                         ]
                     );
 
@@ -555,8 +554,8 @@ router.post(
 
                     console.log("Updating latest message in conversation");
                     await db.query(
-                        "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
-                        [messageBody, senderUserId, false, convoId]
+                        "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+                        [messageBody, senderUserId, [], convoId]
                     );
                 }
             } else {
@@ -578,8 +577,8 @@ router.post(
 
                 console.log("Updating latest message in conversation");
                 await db.query(
-                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
-                    [messageBody, senderUserId, false, convoId]
+                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+                    [messageBody, senderUserId, [], convoId]
                 );
             }
 
