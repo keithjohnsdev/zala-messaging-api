@@ -511,16 +511,18 @@ router.post(
                     `WITH provided_users AS (
     SELECT $1::jsonb AS users
 )
-SELECT * 
+SELECT *
 FROM conversations
 WHERE title = $2
 AND (
-    SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
-    FROM (SELECT jsonb_array_elements(users) AS users_element FROM provided_users) AS subquery
-) = (
-    SELECT array_agg(conversations_users->>'uuid' ORDER BY conversations_users->>'uuid')
-    FROM provided_users, conversations, LATERAL jsonb_array_elements(conversations.users) AS conversations_users
-    WHERE conversations.title = $2
+    SELECT ARRAY(
+        SELECT jsonb_array_elements(users)->>'uuid' AS uuid
+        FROM provided_users
+    )
+    = ARRAY(
+        SELECT uuid
+        FROM UNNEST($1::jsonb) AS users(uuid, name)
+    )
 );`,
                     [JSON.stringify(users), conversationTitle]
                 );
