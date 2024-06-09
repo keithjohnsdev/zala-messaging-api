@@ -516,10 +516,10 @@ FROM conversations
 WHERE title = $2
 AND (
     SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
-    FROM jsonb_array_elements((SELECT users FROM provided_users)) AS users_element
+    FROM (SELECT jsonb_array_elements(users) AS users_element FROM provided_users) AS subquery
 ) = (
     SELECT array_agg(conversations_users->>'uuid' ORDER BY conversations_users->>'uuid')
-    FROM provided_users, conversations, jsonb_array_elements(conversations.users) AS conversations_users
+    FROM provided_users, conversations, LATERAL jsonb_array_elements(conversations.users) AS conversations_users
     WHERE conversations.title = $2
 );`,
                     [JSON.stringify(users), conversationTitle]
