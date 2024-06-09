@@ -552,7 +552,7 @@ router.post(
                 } else {
                     console.log("Conversation exists");
                     convoId = conversation.rows[0].conversation_id;
-                    
+
                     console.log("Updating latest message in conversation");
                     await db.query(
                         "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
@@ -649,17 +649,34 @@ router.post(
     }
 );
 
-// read message
+// read message using read_by uuid array
 router.post("/readMessageUsers/:conversationId", async (req, res) => {
-    const { userId } = req;
+    const { userId } = req; // Assuming userId is available in req object
     const { conversationId } = req.params;
 
     try {
-        // Update the read column to true for the specified conversation
-        await db.query(
-            "UPDATE conversations SET read = true WHERE conversation_id = $1",
+        // Fetch the current read_by array
+        const { rows } = await db.query(
+            "SELECT read_by FROM conversations WHERE conversation_id = $1",
             [conversationId]
         );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Conversation not found" });
+        }
+
+        let readBy = rows[0].read_by || [];
+
+        // Check if userId is already in the read_by array
+        if (!readBy.includes(userId)) {
+            readBy.push(userId);
+
+            // Update the read_by array in the database
+            await db.query(
+                "UPDATE conversations SET read_by = $1 WHERE conversation_id = $2",
+                [readBy, conversationId]
+            );
+        }
 
         res.status(200).json({ message: "Conversation marked as read" });
     } catch (error) {
