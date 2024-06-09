@@ -730,7 +730,7 @@ router.get("/sentUsers", async (req, res) => {
             [userId]
         );
 
-        res.status(200).json(conversations);
+        res.status(200).json(conversations.rows);
     } catch (error) {
         console.error("Error fetching inbox:", error);
         res.status(500).json({ error: "Internal Server Error" });
