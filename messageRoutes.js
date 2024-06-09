@@ -689,15 +689,28 @@ router.get("/messages", async (req, res) => {
         );
 
         // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = conversations.rows.map((conversation) => {
-            if (
-                conversation.read_by?.includes(userId) ||
-                conversation.latest_message_sender === userId
-            ) {
-                conversation.read = true;
-            }
-            return conversation;
-        });
+        const modifiedConversations = addReadField(conversations);
+
+        res.status(200).json(modifiedConversations);
+    } catch (error) {
+        console.error("Error fetching inbox:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// inbox
+router.get("/inboxUsers", async (req, res) => {
+    const { userId } = req;
+
+    try {
+        // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
+        const conversations = await db.query(
+            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND latest_message_sender = $1)",
+            [userId]
+        );
+
+        // Modify the conversations to mark them as read if the user was the last sender
+        const modifiedConversations = addReadField(conversations);
 
         res.status(200).json(modifiedConversations);
     } catch (error) {
@@ -740,6 +753,20 @@ function arrayToPostgresArray(array) {
     // Join the elements with commas and wrap them in curly braces
     const correctedArray = `{${array.join(',')}}`;
     return correctedArray;
+}
+
+function addReadField (conversations) {
+    let newConversationsArray = conversations.rows.map((conversation) => {
+        if (
+            conversation.read_by?.includes(userId) ||
+            conversation.latest_message_sender === userId
+        ) {
+            conversation.read = true;
+        }
+        return conversation;
+    });
+
+    return newConversationsArray;
 }
 
 module.exports = router;
