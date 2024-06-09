@@ -541,7 +541,7 @@ router.post(
                         "Conversation does not exist, creating new conversation"
                     );
                     const newConversation = await db.query(
-                        "INSERT INTO conversations (users, title, latest_message, latest_message_sender, read, length, sorted_uuids, user1_uuid, user2_uuid, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, NOW(), NOW()) RETURNING conversation_id",
+                        "INSERT INTO conversations (users, title, latest_message, latest_message_sender, read, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING conversation_id",
                         [
                             usersArray,
                             conversationTitle,
@@ -550,7 +550,6 @@ router.post(
                             false,
                             1,
                             sortedIds,
-                            "0a7f8950-cbed-416d-a0d0-775bc1dff96d",
                         ]
                     );
 
@@ -585,11 +584,10 @@ router.post(
 
             console.log("Inserting message");
             const messageResult = await db.query(
-                "INSERT INTO messages (conversation_id, sender_uuid, users, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING message_id",
+                "INSERT INTO messages (conversation_id, sender_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING message_id",
                 [
                     convoId,
                     senderUserId,
-                    usersArray,
                     messageBody,
                     attachedContent,
                 ]
