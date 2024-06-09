@@ -466,7 +466,7 @@ router.post(
         const messageBody = message === "null" ? "" : message;
         const usersArray = users && JSON.parse(users);
         const uuids = usersArray && usersArray.map(user => user.uuid);
-        const sortedIds = uuids.sort();
+        const sortedIds = uuids && uuids.sort();
         const attachedFiles = req.files["files"];
         const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
 
