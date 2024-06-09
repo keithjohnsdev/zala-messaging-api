@@ -427,6 +427,213 @@ router.post("/conversation/delete/:conversationId", async (req, res) => {
     }
 });
 
+//----- Adding test support for multiple users in conversations
+
+router.post(
+    "/sendMessageUsers",
+    upload.fields([{ name: "files", maxCount: 10 }]),
+    async (req, res) => {
+        const {
+            userId: senderUserId,
+            userFullName: senderFullName,
+            userEmail: senderEmail,
+        } = req;
+        let {
+            recipientFullName,
+            recipientUserId,
+            conversationId,
+            title,
+            message,
+            attachedContentJson,
+            users, //-- added here
+        } = req.body;
+
+        const conversationTitle = title;
+        const messageBody = message === "null" ? "" : message;
+        const usersArray = users && JSON.parse(users); //-- handled
+        const attachedFiles = req.files["files"];
+        const attachedContent =
+            attachedContentJson && JSON.parse(attachedContentJson);
+        console.log(attachedContent);
+
+        let convoId = conversationId && Number(conversationId);
+
+        try {
+            function stripHTML(html) {
+                const $ = cheerio.load(html);
+                return $("body").text();
+            }
+
+            let messageBodyStrippedHTML = stripHTML(messageBody);
+
+            if (!convoId) {
+                //-- Iterate instead
+                for (const user of users) {
+                    if (user.uuid === senderUserId) {
+                        console.log("Checking if sender exists");
+                        let sender = await db.query(
+                            "SELECT * FROM users WHERE user_uuid = $1",
+                            [senderUserId]
+                        );
+
+                        if (sender.rowCount === 0) {
+                            console.log("Sender does not exist, creating new user");
+                            await db.query(
+                                "INSERT INTO users (user_uuid, name, email, created_at) VALUES ($1, $2, $3, NOW())",
+                                [senderUserId, senderFullName, senderEmail]
+                            );
+                        } else if (!sender.rows[0].email) {
+                            console.log("Sender exists, updating email if missing");
+                            await db.query(
+                                "UPDATE users SET email = $1 WHERE user_uuid = $2",
+                                [senderEmail, senderUserId]
+                            );
+                        }
+                    } else {
+                        console.log("Checking if recipient exists");
+                        let recipient = await db.query(
+                            "SELECT * FROM users WHERE user_uuid = $1",
+                            [user.uuid]
+                        );
+
+                        if (recipient.rowCount === 0) {
+                            console.log("Recipient does not exist, creating new user");
+                            await db.query(
+                                "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
+                                [user.uuid, user.name]
+                            );
+                        }
+                    }
+                }
+
+                console.log("Checking if conversation exists");
+                const conversation = await db.query(
+                    `WITH provided_users AS (
+                        SELECT $1::jsonb AS users
+                    )
+                    SELECT * FROM conversations WHERE title = $2
+                    AND (
+                        SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
+                        FROM jsonb_array_elements(users) AS users_element
+                    ) = (
+                        SELECT array_agg(provided_users_element->>'uuid' ORDER BY provided_users_element->>'uuid')
+                        FROM provided_users, jsonb_array_elements(provided_users.users) AS provided_users_element
+                    );`,
+                    [users, conversationTitle]
+                );
+
+                if (conversation.rowCount === 0) {
+                    console.log(
+                        "Conversation does not exist, creating new conversation"
+                    );
+                    const newConversation = await db.query(
+                        "INSERT INTO conversations (users, title, latest_message, latest_message_sender, read, length, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING conversation_id",
+                        [
+                            users,
+                            conversationTitle,
+                            messageBodyStrippedHTML,
+                            senderUserId,
+                            false,
+                            1,
+                        ]
+                    );
+
+                    convoId = newConversation.rows[0].conversation_id;
+                } else {
+                    console.log("Conversation exists");
+                    convoId = conversation.rows[0].conversation_id;
+                }
+            } else {
+                console.log("Checking if conversation with conversationId exists");
+
+                const conversation = await db.query(
+                    "SELECT * FROM conversations WHERE conversation_id = $1",
+                    [convoId]
+                );
+
+                if (conversation.rowCount === 0) {
+                    console.log(
+                        "Conversation with supplied conversation ID does not exist"
+                    );
+                } else {
+                    console.log("Conversation found");
+                    recipientUserId = conversation.rows[0].user1_uuid === senderUserId ? conversation.rows[0].user2_uuid : conversation.rows[0].user1_uuid;
+                }
+
+                console.log("Updating latest message in conversation");
+                await db.query(
+                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+                    [messageBody, senderUserId, false, convoId]
+                );
+            }
+
+            console.log("Inserting message");
+            const messageResult = await db.query(
+                "INSERT INTO messages (conversation_id, sender_uuid, recipient_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING message_id",
+                [
+                    convoId,
+                    senderUserId,
+                    recipientUserId,
+                    messageBody,
+                    attachedContent,
+                ]
+            );
+            const messageId = messageResult.rows[0].message_id;
+
+            if (attachedFiles && attachedFiles.length > 0) {
+                console.log("Processing attached files");
+                for (const file of attachedFiles) {
+                    const hash = crypto
+                        .createHash("sha256")
+                        .update(file.buffer)
+                        .digest("hex");
+                    const s3Key = `uploads/${hash}-${file.originalname}`;
+
+                    console.log("Uploading file to S3:", s3Key);
+                    await s3
+                        .upload({
+                            Bucket: process.env.S3_BUCKET_NAME,
+                            Key: s3Key,
+                            Body: file.buffer,
+                            ContentType: file.mimetype,
+                        })
+                        .promise();
+
+                    console.log("Inserting file metadata into files table");
+                    const fileResult = await db.query(
+                        "INSERT INTO files (hash, file_path, file_name, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (hash) DO NOTHING RETURNING file_id",
+                        [hash, s3Key, file.originalname]
+                    );
+
+                    let fileId;
+                    if (fileResult.rows.length > 0) {
+                        fileId = fileResult.rows[0].file_id;
+                    } else {
+                        const existingFile = await db.query(
+                            "SELECT file_id FROM files WHERE hash = $1",
+                            [hash]
+                        );
+                        fileId = existingFile.rows[0].file_id;
+                    }
+
+                    console.log(
+                        "Linking file to message in message_files table"
+                    );
+                    await db.query(
+                        "INSERT INTO message_files (message_id, file_id, created_at) VALUES ($1, $2, NOW())",
+                        [messageId, fileId]
+                    );
+                }
+            }
+
+            res.status(201).json({ message: "Message sent successfully" });
+        } catch (error) {
+            console.error("Error sending message:", error);
+            res.status(500).json({ error: "Internal Server Error" });
+        }
+    }
+);
+
 // Helper Functions
 
 async function fetchContentItems(contentIds, token) {
