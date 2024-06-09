@@ -526,12 +526,7 @@ router.post(
 
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
-                    `
-    SELECT * 
-    FROM conversations 
-    WHERE title = $1 
-    AND sorted_uuids = $2::uuid[]
-    `,
+                    `SELECT * FROM conversations WHERE title = $1 AND sorted_uuids = $2::uuid[]`,
                     [conversationTitle, arrayToPostgresArray(sortedIds)]
                 );
 
@@ -557,6 +552,12 @@ router.post(
                 } else {
                     console.log("Conversation exists");
                     convoId = conversation.rows[0].conversation_id;
+                    
+                    console.log("Updating latest message in conversation");
+                    await db.query(
+                        "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+                        [messageBody, senderUserId, false, convoId]
+                    );
                 }
             } else {
                 console.log("Checking if conversation with conversationId exists");
@@ -647,6 +648,25 @@ router.post(
         }
     }
 );
+
+// read message
+router.post("/readMessageUsers/:conversationId", async (req, res) => {
+    const { userId } = req;
+    const { conversationId } = req.params;
+
+    try {
+        // Update the read column to true for the specified conversation
+        await db.query(
+            "UPDATE conversations SET read = true WHERE conversation_id = $1",
+            [conversationId]
+        );
+
+        res.status(200).json({ message: "Conversation marked as read" });
+    } catch (error) {
+        console.error("Error marking conversation as read:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
 
 // Helper Functions
 
