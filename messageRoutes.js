@@ -514,12 +514,12 @@ router.post(
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
                     `
-    SELECT * 
-    FROM conversations 
-    WHERE title = $1 
-    AND sorted_uuids = $2::uuid[]
-    `,
-                    [conversationTitle, sortedIds.map(uuid => `(${uuid}::uuid)`)] // Casting each string UUID to UUID type
+                    SELECT * 
+                    FROM conversations 
+                    WHERE title = $1 
+                    AND sorted_uuids = $2::uuid[]
+                    `,
+                    [conversationTitle, sortedIds]
                 );
 
 
