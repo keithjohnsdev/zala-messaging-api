@@ -719,6 +719,27 @@ router.get("/inboxUsers", async (req, res) => {
     }
 });
 
+// sent
+router.get("/sentUsers", async (req, res) => {
+    const { userId } = req;
+
+    try {
+        // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
+        const conversations = await db.query(
+            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (length = 1 AND latest_message_sender = $1)",
+            [userId]
+        );
+
+        // Modify the conversations to mark them as read if the user was the last sender
+        const modifiedConversations = addReadFieldTrue(conversations);
+
+        res.status(200).json(modifiedConversations);
+    } catch (error) {
+        console.error("Error fetching inbox:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 // Helper Functions
 
 async function fetchContentItems(contentIds, token) {
@@ -755,7 +776,7 @@ function arrayToPostgresArray(array) {
     return correctedArray;
 }
 
-function addReadField (conversations, userId) {
+function addReadField(conversations, userId) {
     let newConversationsArray = conversations.rows.map((conversation) => {
         if (
             conversation.read_by?.includes(userId) ||
@@ -763,6 +784,15 @@ function addReadField (conversations, userId) {
         ) {
             conversation.read = true;
         }
+        return conversation;
+    });
+
+    return newConversationsArray;
+}
+
+function addReadFieldTrue(conversations) {
+    let newConversationsArray = conversations.rows.map((conversation) => {
+        conversation.read = true;
         return conversation;
     });
 
