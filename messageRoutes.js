@@ -450,7 +450,7 @@ router.post(
 
         const conversationTitle = title;
         const messageBody = message === "null" ? "" : message;
-        users = users && JSON.parse(users); // handled
+        usersArray = users && JSON.parse(users); // handled
         const attachedFiles = req.files["files"];
         const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
 
@@ -468,7 +468,7 @@ router.post(
 
             if (!convoId) {
                 // Iterate instead
-                for (const user of users) {
+                for (const user of usersArray) {
                     if (user.uuid === senderUserId) {
                         console.log("Checking if sender exists");
                         let sender = await db.query(
@@ -516,7 +516,7 @@ FROM conversations
 WHERE title = $2
 AND (
     SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
-    FROM jsonb_array_elements(provided_users.users) AS users_element
+    FROM jsonb_array_elements((SELECT users FROM provided_users)) AS users_element
 ) = (
     SELECT array_agg(conversations_users->>'uuid' ORDER BY conversations_users->>'uuid')
     FROM provided_users, conversations, LATERAL jsonb_array_elements(conversations.users) AS conversations_users
