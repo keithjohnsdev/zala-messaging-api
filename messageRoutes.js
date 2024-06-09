@@ -509,18 +509,19 @@ router.post(
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
                     `WITH provided_users AS (
-                        SELECT $1::jsonb AS users
-                    )
-                    SELECT * 
-                    FROM conversations
-                    WHERE title = $2
-                    AND (
-                        SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
-                        FROM jsonb_array_elements(users) AS users_element
-                    ) = (
-                        SELECT array_agg(provided_users_element->>'uuid' ORDER BY provided_users_element->>'uuid')
-                        FROM provided_users, jsonb_array_elements(provided_users.users) AS provided_users_element
-                    );`,
+    SELECT $1::jsonb AS users
+)
+SELECT * 
+FROM conversations
+WHERE title = $2
+AND (
+    SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
+    FROM jsonb_array_elements(provided_users.users) AS users_element
+) = (
+    SELECT array_agg(conversations_users->>'uuid' ORDER BY conversations_users->>'uuid')
+    FROM provided_users, conversations, jsonb_array_elements(conversations.users) AS conversations_users
+    WHERE conversations.title = $2
+);`,
                     [JSON.stringify(users), conversationTitle]
                 );
 
