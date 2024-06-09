@@ -684,10 +684,11 @@ router.get("/messages", async (req, res) => {
         // Select all conversations where the userId is included in the users array
         const conversations = await db.query(
             `SELECT * FROM conversations 
-             WHERE EXISTS (
-                 SELECT 1 FROM jsonb_array_elements_text(users) AS user
-                 WHERE user = $1
-             )`,
+WHERE EXISTS (
+    SELECT 1 FROM jsonb_array_elements_text(users) AS "user"
+    WHERE "user" = $1
+)
+`,
             [userId]
         );
 
