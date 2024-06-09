@@ -459,15 +459,13 @@ router.post(
             title,
             message,
             attachedContentJson,
-            users, // added here
+            users,
         } = req.body;
 
         const conversationTitle = title;
         const messageBody = message === "null" ? "" : message;
-        usersArray = users && JSON.parse(users); // handled
-        // Extract UUIDs from user objects
+        const usersArray = users && JSON.parse(users);
         const uuids = usersArray.map(user => user.uuid);
-        // Sort UUIDs
         const sortedIds = uuids.sort();
         const attachedFiles = req.files["files"];
         const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
@@ -477,6 +475,8 @@ router.post(
         let convoId = conversationId && Number(conversationId);
 
         try {
+            await db.query("BEGIN");
+
             function stripHTML(html) {
                 const $ = cheerio.load(html);
                 return $("body").text();
@@ -485,7 +485,6 @@ router.post(
             let messageBodyStrippedHTML = stripHTML(messageBody);
 
             if (!convoId) {
-                // Iterate instead
                 for (const user of usersArray) {
                     if (user.uuid === senderUserId) {
                         console.log("Checking if sender exists");
@@ -530,11 +529,8 @@ router.post(
                     [conversationTitle, arrayToPostgresArray(sortedIds)]
                 );
 
-
                 if (conversation.rowCount === 0) {
-                    console.log(
-                        "Conversation does not exist, creating new conversation"
-                    );
+                    console.log("Conversation does not exist, creating new conversation");
                     const newConversation = await db.query(
                         "INSERT INTO conversations (users, title, latest_message, latest_message_sender, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING conversation_id",
                         [
@@ -567,12 +563,9 @@ router.post(
                 );
 
                 if (conversation.rowCount === 0) {
-                    console.log(
-                        "Conversation with supplied conversation ID does not exist"
-                    );
+                    console.log("Conversation with supplied conversation ID does not exist");
                 } else {
                     console.log("Conversation found");
-                    // recipientUserId = conversation.rows[0].user1_uuid === senderUserId ? conversation.rows[0].user2_uuid : conversation.rows[0].user1_uuid;
                 }
 
                 console.log("Updating latest message in conversation");
@@ -604,14 +597,12 @@ router.post(
                     const s3Key = `uploads/${hash}-${file.originalname}`;
 
                     console.log("Uploading file to S3:", s3Key);
-                    await s3
-                        .upload({
-                            Bucket: process.env.S3_BUCKET_NAME,
-                            Key: s3Key,
-                            Body: file.buffer,
-                            ContentType: file.mimetype,
-                        })
-                        .promise();
+                    await s3.upload({
+                        Bucket: process.env.S3_BUCKET_NAME,
+                        Key: s3Key,
+                        Body: file.buffer,
+                        ContentType: file.mimetype,
+                    }).promise();
 
                     console.log("Inserting file metadata into files table");
                     const fileResult = await db.query(
@@ -630,9 +621,7 @@ router.post(
                         fileId = existingFile.rows[0].file_id;
                     }
 
-                    console.log(
-                        "Linking file to message in message_files table"
-                    );
+                    console.log("Linking file to message in message_files table");
                     await db.query(
                         "INSERT INTO message_files (message_id, file_id, created_at) VALUES ($1, $2, NOW())",
                         [messageId, fileId]
@@ -640,13 +629,16 @@ router.post(
                 }
             }
 
+            await db.query("COMMIT");
             res.status(201).json({ message: "Message sent successfully" });
         } catch (error) {
+            await db.query("ROLLBACK");
             console.error("Error sending message:", error);
             res.status(500).json({ error: "Internal Server Error" });
         }
     }
 );
+
 
 // read message using read_by uuid array
 router.post("/readMessageUsers/:conversationId", async (req, res) => {
@@ -680,6 +672,45 @@ router.post("/readMessageUsers/:conversationId", async (req, res) => {
         res.status(200).json({ message: "Conversation marked as read" });
     } catch (error) {
         console.error("Error marking conversation as read:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// messages for mobile view
+router.get("/messages/:userId", async (req, res) => {
+    const { userId } = req.params;
+    const {
+        userId: userIdSession
+    } = req;
+
+    if (userId !== userIdSession) {
+        console.error("Error fetching inbox: not authorized to view another user's messages");
+        res.status(401).json({ error: "Not authorized to view another user's messages" });
+    }
+
+    try {
+        // Select all conversations where the userId is included in the users array
+        const conversations = await db.query(
+            "SELECT * FROM conversations WHERE $1 = ANY(users)",
+            [userId]
+        );
+
+        res.status(200).json(conversations.rows);
+
+        // Modify the conversations to mark them as read if the user was the last sender
+        const modifiedConversations = conversations.rows.map((conversation) => {
+            if (
+                !conversation.read &&
+                conversation.latest_message_sender === userId
+            ) {
+                conversation.read = true;
+            }
+            return conversation;
+        });
+
+        res.status(200).json(modifiedConversations);
+    } catch (error) {
+        console.error("Error fetching inbox:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
