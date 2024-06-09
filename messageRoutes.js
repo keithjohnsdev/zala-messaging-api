@@ -527,7 +527,7 @@ router.post(
                     const newConversation = await db.query(
                         "INSERT INTO conversations (users, title, latest_message, latest_message_sender, read, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING conversation_id",
                         [
-                            arrayToPostgresArray(users),
+                            arrayToPostgresArray(usersArray),
                             conversationTitle,
                             messageBodyStrippedHTML,
                             senderUserId,
