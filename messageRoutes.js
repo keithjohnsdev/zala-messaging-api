@@ -564,6 +564,7 @@ router.post(
 
                 if (conversation.rowCount === 0) {
                     console.log("Conversation with supplied conversation ID does not exist");
+                    res.status(500).json({ error: "Conversation with supplied conversation ID does not exist" });
                 } else {
                     console.log("Conversation found");
                 }
@@ -683,11 +684,8 @@ router.get("/messages", async (req, res) => {
     try {
         // Select all conversations where the userId is included in the users array
         const conversations = await db.query(
-            `SELECT * FROM conversations 
-WHERE EXISTS (
-    SELECT 1 FROM jsonb_array_elements_text(users) AS "user"
-    WHERE "user" = $1
-)
+            `SELECT * FROM conversations
+WHERE $1 = ANY(sorted_uuids)
 `,
             [userId]
         );
