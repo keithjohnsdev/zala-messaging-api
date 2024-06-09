@@ -439,8 +439,6 @@ router.post(
             userEmail: senderEmail,
         } = req;
         let {
-            recipientFullName,
-            recipientUserId,
             conversationId,
             title,
             message,
@@ -509,7 +507,7 @@ router.post(
                         }
                     }
                 }
-                
+
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
                     `
@@ -518,7 +516,7 @@ router.post(
     WHERE title = $1 
     AND sorted_uuids = $2::uuid[]
     `,
-                    [conversationTitle, JSON.stringify(sortedIds)]
+                    [conversationTitle, arrayToPostgresArray(sortedIds)]
                 );
 
 
@@ -663,6 +661,22 @@ async function fetchContentItems(contentIds, token) {
             error.response ? error.response.data : error.message
         );
     }
+}
+
+function arrayToPostgresArray(array) {
+    // Remove square brackets from the input array
+    const trimmedArray = array.slice(1, -1);
+    
+    // Split the string by commas
+    const elements = trimmedArray.split(',');
+
+    // Trim whitespace from each element and remove surrounding quotation marks
+    const correctedElements = elements.map(element => element.trim().replace(/"/g, ''));
+
+    // Join the elements with commas and wrap them in curly braces
+    const correctedArray = `{${correctedElements.join(',')}}`;
+
+    return correctedArray;
 }
 
 module.exports = router;
