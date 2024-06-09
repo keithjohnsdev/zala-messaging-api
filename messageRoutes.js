@@ -5,7 +5,6 @@ const { S3 } = require("aws-sdk");
 const crypto = require("crypto");
 const cheerio = require("cheerio");
 const axios = require("axios");
-const { v4: uuidv4 } = require('uuid'); // import the UUID library
 
 const router = express.Router();
 
@@ -683,9 +682,6 @@ router.get("/messages", async (req, res) => {
     const { userId } = req;
 
     try {
-        // Convert userId to UUID
-        const userIdAsUUID = uuidv4(userId);
-        
         // Select all conversations where the userId is included in the users array
         const conversations = await db.query(
             `SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids)`,
@@ -695,7 +691,7 @@ router.get("/messages", async (req, res) => {
         // Modify the conversations to mark them as read if the user was the last sender
         const modifiedConversations = conversations.rows.map((conversation) => {
             if (
-                conversation.read_by.includes(userId) &&
+                conversation.read_by?.includes(userId) ||
                 conversation.latest_message_sender === userId
             ) {
                 conversation.read = true;
