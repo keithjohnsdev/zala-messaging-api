@@ -684,13 +684,9 @@ router.get("/messages", async (req, res) => {
     try {
         // Select all conversations where the userId is included in the users array
         const conversations = await db.query(
-            `SELECT * FROM conversations
-WHERE $1 = ANY(sorted_uuids)
-`,
+            `SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids)`,
             [userId]
         );
-
-        res.status(200).json(conversations.rows);
 
         // Modify the conversations to mark them as read if the user was the last sender
         const modifiedConversations = conversations.rows.map((conversation) => {
