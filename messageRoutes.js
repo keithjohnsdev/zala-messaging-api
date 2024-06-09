@@ -486,21 +486,21 @@ router.post(
 
             if (!convoId) {
                 for (const user of usersArray) {
-                        console.log("Checking if user exists");
-                        let userResult = await db.query(
-                            "SELECT * FROM users WHERE user_uuid = $1",
-                            [user.uuid]
-                        );
+                    console.log("Checking if user exists");
+                    let userResult = await db.query(
+                        "SELECT * FROM users WHERE user_uuid = $1",
+                        [user.uuid]
+                    );
 
-                        if (userResult.rowCount === 0) {
-                            console.log("User does not exist, creating new user");
-                            await db.query(
-                                "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
-                                [user.uuid, user.name]
-                            );
-                        }
+                    if (userResult.rowCount === 0) {
+                        console.log("User does not exist, creating new user");
+                        await db.query(
+                            "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
+                            [user.uuid, user.name]
+                        );
                     }
                 }
+
 
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
