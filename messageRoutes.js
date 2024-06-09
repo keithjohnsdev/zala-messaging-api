@@ -384,7 +384,7 @@ router.get("/conversation/:conversationId", async (req, res) => {
 });
 
 //delete conversation
-router.post("/conversation/delete/:conversationId", async (req, res) => {
+router.delete("/conversation/delete/:conversationId", async (req, res) => {
     const { conversationId } = req.params;
 
     try {
@@ -443,7 +443,7 @@ router.post("/conversation/delete/:conversationId", async (req, res) => {
     }
 });
 
-//----- Adding test support for multiple users in conversations
+//----- Adding test support for multiple users in conversations ------------------------------------------
 
 router.post(
     "/sendMessageUsers",
