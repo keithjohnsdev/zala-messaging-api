@@ -445,15 +445,15 @@ router.post(
             title,
             message,
             attachedContentJson,
-            users, //-- added here
+            users, // added here
         } = req.body;
 
         const conversationTitle = title;
         const messageBody = message === "null" ? "" : message;
-        // users = users && JSON.parse(users);
+        users = users && JSON.parse(users); // handled
         const attachedFiles = req.files["files"];
-        const attachedContent =
-            attachedContentJson && JSON.parse(attachedContentJson);
+        const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
+
         console.log(attachedContent);
 
         let convoId = conversationId && Number(conversationId);
@@ -467,7 +467,7 @@ router.post(
             let messageBodyStrippedHTML = stripHTML(messageBody);
 
             if (!convoId) {
-                //-- Iterate instead
+                // Iterate instead
                 for (const user of users) {
                     if (user.uuid === senderUserId) {
                         console.log("Checking if sender exists");
@@ -509,19 +509,19 @@ router.post(
                 console.log("Checking if conversation exists");
                 const conversation = await db.query(
                     `WITH provided_users AS (
-    SELECT $2::jsonb AS users
-)
-SELECT * 
-FROM conversations
-WHERE title = $3
-AND (
-    SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
-    FROM unnest(users) AS users_element
-) = (
-    SELECT array_agg(provided_users_element->>'uuid' ORDER BY provided_users_element->>'uuid')
-    FROM provided_users, jsonb_array_elements(provided_users.users) AS provided_users_element
-);`,
-                    [users, conversationTitle]
+                        SELECT $1::jsonb AS users
+                    )
+                    SELECT * 
+                    FROM conversations
+                    WHERE title = $2
+                    AND (
+                        SELECT array_agg(users_element->>'uuid' ORDER BY users_element->>'uuid')
+                        FROM jsonb_array_elements(users) AS users_element
+                    ) = (
+                        SELECT array_agg(provided_users_element->>'uuid' ORDER BY provided_users_element->>'uuid')
+                        FROM provided_users, jsonb_array_elements(provided_users.users) AS provided_users_element
+                    );`,
+                    [JSON.stringify(users), conversationTitle]
                 );
 
                 if (conversation.rowCount === 0) {
@@ -531,7 +531,7 @@ AND (
                     const newConversation = await db.query(
                         "INSERT INTO conversations (users, title, latest_message, latest_message_sender, read, length, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING conversation_id",
                         [
-                            users,
+                            JSON.stringify(users),
                             conversationTitle,
                             messageBodyStrippedHTML,
                             senderUserId,
