@@ -527,13 +527,13 @@ router.post(
                     const newConversation = await db.query(
                         "INSERT INTO conversations (users, title, latest_message, latest_message_sender, read, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING conversation_id",
                         [
-                            JSON.stringify(users),
+                            arrayToPostgresArray(users),
                             conversationTitle,
                             messageBodyStrippedHTML,
                             senderUserId,
                             false,
                             1,
-                            sortedIds
+                            arrayToPostgresArray(sortedIds)
                         ]
                     );
 
@@ -666,10 +666,6 @@ async function fetchContentItems(contentIds, token) {
 function arrayToPostgresArray(array) {
     // Join the elements with commas and wrap them in curly braces
     const correctedArray = `{${array.join(',')}}`;
-    
-    console.log('output:');
-    console.log(correctedArray);
-
     return correctedArray;
 }
 
