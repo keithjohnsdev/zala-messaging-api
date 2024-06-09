@@ -677,16 +677,8 @@ router.post("/readMessageUsers/:conversationId", async (req, res) => {
 });
 
 // messages for mobile view
-router.get("/messages/:userId", async (req, res) => {
-    const { userId } = req.params;
-    const {
-        userId: userIdSession
-    } = req;
-
-    if (userId !== userIdSession) {
-        console.error("Error fetching inbox: not authorized to view another user's messages");
-        res.status(401).json({ error: "Not authorized to view another user's messages" });
-    }
+router.get("/messages", async (req, res) => {
+    const { userId } = req;
 
     try {
         // Select all conversations where the userId is included in the users array
@@ -700,7 +692,7 @@ router.get("/messages/:userId", async (req, res) => {
         // Modify the conversations to mark them as read if the user was the last sender
         const modifiedConversations = conversations.rows.map((conversation) => {
             if (
-                !conversation.read &&
+                conversation.read_by.includes(userId) &&
                 conversation.latest_message_sender === userId
             ) {
                 conversation.read = true;
