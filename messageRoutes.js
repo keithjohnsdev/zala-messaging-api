@@ -665,6 +665,8 @@ async function fetchContentItems(contentIds, token) {
 
 function arrayToPostgresArray(array) {
     // Remove square brackets from the input array
+    console.log('input:');
+    console.log(array);
     const trimmedArray = array.slice(1, -1);
     
     // Split the string by commas
@@ -675,6 +677,8 @@ function arrayToPostgresArray(array) {
 
     // Join the elements with commas and wrap them in curly braces
     const correctedArray = `{${correctedElements.join(',')}}`;
+    console.log('output')
+    console.log(correctedArray);
 
     return correctedArray;
 }
