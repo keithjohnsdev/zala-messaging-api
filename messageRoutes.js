@@ -478,7 +478,7 @@ router.post(
         const messageBody = message === "null" ? "" : message;
         const usersArray = users && JSON.parse(users);
 
-        usersArray && usersArray.push({name: senderFullName, uuid: senderUserId})
+        usersArray && usersArray.push({ name: senderFullName, uuid: senderUserId })
         users = JSON.stringify(usersArray);
 
         const uuids = usersArray && usersArray.map(user => user.uuid);
@@ -501,26 +501,6 @@ router.post(
             let messageBodyStrippedHTML = stripHTML(messageBody);
 
             if (!convoId) {
-
-                // console.log("Checking if sender exists");
-                // let sender = await db.query(
-                //     "SELECT * FROM users WHERE user_uuid = $1",
-                //     [senderUserId]
-                // );
-
-                // if (sender.rowCount === 0) {
-                //     console.log("Sender does not exist, creating new user");
-                //     await db.query(
-                //         "INSERT INTO users (user_uuid, name, email, created_at) VALUES ($1, $2, $3, NOW())",
-                //         [senderUserId, senderFullName, senderEmail]
-                //     );
-                // } else if (!sender.rows[0].email) {
-                //     console.log("Sender exists, updating email if missing");
-                //     await db.query(
-                //         "UPDATE users SET email = $1 WHERE user_uuid = $2",
-                //         [senderEmail, senderUserId]
-                //     );
-                // }
 
                 for (const user of usersArray) {
 
@@ -754,6 +734,43 @@ router.get("/sentUsers", async (req, res) => {
     } catch (error) {
         console.error("Error fetching inbox:", error);
         res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// delete conversation for user
+router.delete("/conversation/deleteForUser/:conversationId", async (req, res) => {
+    const { userId } = req;
+    const { conversationId } = req.params;
+
+    try {
+        // Start a transaction
+        await db.query("BEGIN");
+
+        // Check if the conversation exists
+        const conversationResult = await db.query(
+            "SELECT 1 FROM conversations WHERE conversation_id = $1",
+            [conversationId]
+        );
+
+        if (conversationResult.rowCount === 0) {
+            // Rollback the transaction
+            await db.query("ROLLBACK");
+            return res.status(404).json({ message: "No conversation found with provided conversation ID" });
+        }
+
+        await db.query(
+            "UPDATE conversations SET deleted_by = array_append(deleted_by, $1) WHERE conversation_id = $2",
+            [userId, conversationId]
+        );
+
+        // Commit transaction
+        await db.query("COMMIT");
+
+        res.status(200).json({ message: "Conversation and related files deleted successfully" });
+    } catch (error) {
+        // Rollback the transaction in case of an error
+        await db.query("ROLLBACK");
+        res.status(500).json({ message: error.message });
     }
 });
 
