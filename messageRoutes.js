@@ -675,7 +675,7 @@ router.post("/readMessage/:conversationId", async (req, res) => {
 });
 
 // messages for mobile view
-router.get("/messages", async (req, res) => {
+router.get("/conversations", async (req, res) => {
     const { userId } = req;
 
     try {
