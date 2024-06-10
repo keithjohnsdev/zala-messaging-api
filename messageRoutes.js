@@ -391,6 +391,18 @@ router.delete("/conversation/delete/:conversationId", async (req, res) => {
         // Start a transaction
         await db.query("BEGIN");
 
+        // Check if the conversation exists
+        const conversationResult = await db.query(
+            "SELECT 1 FROM conversations WHERE conversation_id = $1",
+            [conversationId]
+        );
+
+        if (conversationResult.rowCount === 0) {
+            // Rollback the transaction
+            await db.query("ROLLBACK");
+            return res.status(404).json({ message: "No conversation found with provided conversation ID" });
+        }
+
         // Get file_ids and file_paths before deleting the conversation
         const filesResult = await db.query(
             `SELECT f.file_id, f.file_path 
@@ -436,10 +448,10 @@ router.delete("/conversation/delete/:conversationId", async (req, res) => {
 
         res.status(200).json({ message: "Conversation and related files deleted successfully" });
     } catch (error) {
-        // Rollback transaction in case of error
+        // Rollback the transaction in case of an error
         await db.query("ROLLBACK");
-        console.error("Error deleting conversation:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+
+        res.status(500).json({ message: error.message });
     }
 });
 
@@ -468,7 +480,7 @@ router.post(
 
         usersArray.push({name: senderFullName, uuid: senderUserId})
         users = JSON.stringify(usersArray);
-        
+
         const uuids = usersArray && usersArray.map(user => user.uuid);
         const sortedIds = uuids && uuids.sort();
         const attachedFiles = req.files["files"];
