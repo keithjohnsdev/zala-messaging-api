@@ -483,10 +483,11 @@ router.post(
             }
 
             let messageBodyStrippedHTML = stripHTML(messageBody);
-
-            users.push({name: senderFullName, uuid: senderUserId})
-            console.log(users);
-
+            console.log(users)
+            usersArray.push({name: senderFullName, uuid: senderUserId})
+            console.log(usersArray);
+            users = JSON.stringify(usersArray);
+            console.log(users)
             if (!convoId) {
 
                 // console.log("Checking if sender exists");
