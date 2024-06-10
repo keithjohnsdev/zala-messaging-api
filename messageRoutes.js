@@ -513,12 +513,12 @@ router.post(
                 for (const user of usersArray) {
 
                     console.log("Checking if user exists");
-                    let user = await db.query(
+                    let userQuery = await db.query(
                         "SELECT * FROM users WHERE user_uuid = $1",
                         [user.uuid]
                     );
 
-                    if (user.rowCount === 0) {
+                    if (userQuery.rowCount === 0) {
                         console.log("User does not exist, creating new user");
                         await db.query(
                             "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
