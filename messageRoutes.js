@@ -747,7 +747,10 @@ router.get("/sentUsers", async (req, res) => {
             [userId]
         );
 
-        res.status(200).json(conversations.rows);
+        // Modify the conversations to mark them as read if the user was the last sender
+        const modifiedConversations = addReadField(conversations, userId);
+
+        res.status(200).json(modifiedConversations);
     } catch (error) {
         console.error("Error fetching inbox:", error);
         res.status(500).json({ error: "Internal Server Error" });
