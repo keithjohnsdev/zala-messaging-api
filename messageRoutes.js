@@ -484,38 +484,41 @@ router.post(
 
             let messageBodyStrippedHTML = stripHTML(messageBody);
 
+            users.push({name: senderFullName, uuid: senderUserId})
+            console.log(users);
+
             if (!convoId) {
 
-                console.log("Checking if sender exists");
-                let sender = await db.query(
-                    "SELECT * FROM users WHERE user_uuid = $1",
-                    [senderUserId]
-                );
+                // console.log("Checking if sender exists");
+                // let sender = await db.query(
+                //     "SELECT * FROM users WHERE user_uuid = $1",
+                //     [senderUserId]
+                // );
 
-                if (sender.rowCount === 0) {
-                    console.log("Sender does not exist, creating new user");
-                    await db.query(
-                        "INSERT INTO users (user_uuid, name, email, created_at) VALUES ($1, $2, $3, NOW())",
-                        [senderUserId, senderFullName, senderEmail]
-                    );
-                } else if (!sender.rows[0].email) {
-                    console.log("Sender exists, updating email if missing");
-                    await db.query(
-                        "UPDATE users SET email = $1 WHERE user_uuid = $2",
-                        [senderEmail, senderUserId]
-                    );
-                }
+                // if (sender.rowCount === 0) {
+                //     console.log("Sender does not exist, creating new user");
+                //     await db.query(
+                //         "INSERT INTO users (user_uuid, name, email, created_at) VALUES ($1, $2, $3, NOW())",
+                //         [senderUserId, senderFullName, senderEmail]
+                //     );
+                // } else if (!sender.rows[0].email) {
+                //     console.log("Sender exists, updating email if missing");
+                //     await db.query(
+                //         "UPDATE users SET email = $1 WHERE user_uuid = $2",
+                //         [senderEmail, senderUserId]
+                //     );
+                // }
 
                 for (const user of usersArray) {
 
-                    console.log("Checking if recipient exists");
-                    let recipient = await db.query(
+                    console.log("Checking if user exists");
+                    let user = await db.query(
                         "SELECT * FROM users WHERE user_uuid = $1",
                         [user.uuid]
                     );
 
-                    if (recipient.rowCount === 0) {
-                        console.log("Recipient does not exist, creating new user");
+                    if (user.rowCount === 0) {
+                        console.log("User does not exist, creating new user");
                         await db.query(
                             "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
                             [user.uuid, user.name]
