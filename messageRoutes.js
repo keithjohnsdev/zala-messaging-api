@@ -478,7 +478,7 @@ router.post(
         const messageBody = message === "null" ? "" : message;
         const usersArray = users && JSON.parse(users);
 
-        usersArray.push({name: senderFullName, uuid: senderUserId})
+        usersArray && usersArray.push({name: senderFullName, uuid: senderUserId})
         users = JSON.stringify(usersArray);
 
         const uuids = usersArray && usersArray.map(user => user.uuid);
