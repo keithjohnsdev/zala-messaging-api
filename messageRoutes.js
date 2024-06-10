@@ -465,6 +465,10 @@ router.post(
         const conversationTitle = title;
         const messageBody = message === "null" ? "" : message;
         const usersArray = users && JSON.parse(users);
+
+        usersArray.push({name: senderFullName, uuid: senderUserId})
+        users = JSON.stringify(usersArray);
+        
         const uuids = usersArray && usersArray.map(user => user.uuid);
         const sortedIds = uuids && uuids.sort();
         const attachedFiles = req.files["files"];
@@ -483,11 +487,7 @@ router.post(
             }
 
             let messageBodyStrippedHTML = stripHTML(messageBody);
-            console.log(users)
-            usersArray.push({name: senderFullName, uuid: senderUserId})
-            console.log(usersArray);
-            users = JSON.stringify(usersArray);
-            console.log(users)
+
             if (!convoId) {
 
                 // console.log("Checking if sender exists");
