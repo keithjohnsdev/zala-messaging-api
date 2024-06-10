@@ -383,8 +383,8 @@ router.get("/conversation/:conversationId", async (req, res) => {
     }
 });
 
-//delete conversation
-router.delete("/conversation/delete/:conversationId", async (req, res) => {
+//delete conversation from database
+router.delete("/conversation/deleteFromDatabase/:conversationId", async (req, res) => {
     const { conversationId } = req.params;
 
     try {
@@ -702,7 +702,7 @@ router.get("/inboxUsers", async (req, res) => {
     try {
         // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
         const conversations = await db.query(
-            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND latest_message_sender = $1)",
+            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND latest_message_sender = $1) AND NOT $1 = ANY(deleted_by)",
             [userId]
         );
 
@@ -723,7 +723,7 @@ router.get("/sentUsers", async (req, res) => {
     try {
         // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
         const conversations = await db.query(
-            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (length = 1 AND latest_message_sender = $1)",
+            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (length = 1 AND latest_message_sender = $1) AND NOT $1 = ANY(deleted_by)",
             [userId]
         );
 
@@ -766,7 +766,7 @@ router.delete("/conversation/deleteForUser/:conversationId", async (req, res) =>
         // Commit transaction
         await db.query("COMMIT");
 
-        res.status(200).json({ message: "Conversation and related files deleted successfully" });
+        res.status(200).json({ message: "Conversation deleted for user" });
     } catch (error) {
         // Rollback the transaction in case of an error
         await db.query("ROLLBACK");
