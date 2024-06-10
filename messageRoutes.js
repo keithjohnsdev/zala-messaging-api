@@ -702,7 +702,7 @@ router.get("/inboxUsers", async (req, res) => {
     try {
         // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
         const conversations = await db.query(
-            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))",
+            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND latest_message_sender = $1) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))",
             [userId]
         );
 
