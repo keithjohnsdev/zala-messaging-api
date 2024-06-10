@@ -547,7 +547,7 @@ router.post(
 
                     console.log("Updating latest message in conversation");
                     await db.query(
-                        "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+                        "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, deleted_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
                         [messageBody, senderUserId, [], convoId]
                     );
                 }
