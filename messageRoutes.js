@@ -215,7 +215,7 @@ router.post(
                 }
             }
 
-            res.status(201).json({ message: "Message sent successfully" });
+            res.status(201).json({ message: "Message sent successfully", convoId: convoId });
         } catch (error) {
             console.error("Error sending message:", error);
             res.status(500).json({ error: "Internal Server Error" });
