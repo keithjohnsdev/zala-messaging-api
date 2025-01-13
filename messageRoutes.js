@@ -628,7 +628,7 @@ router.post(
             }
 
             await db.query("COMMIT");
-            res.status(201).json({ message: "Message sent successfully" });
+            res.status(201).json({ message: "Message sent successfully", convoId: convoId });
         } catch (error) {
             await db.query("ROLLBACK");
             console.error("Error sending message:", error);
