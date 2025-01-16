@@ -481,6 +481,8 @@ router.post(
         usersArray && usersArray.push({ name: senderFullName, uuid: senderUserId })
         users = JSON.stringify(usersArray);
 
+        console.log(users);
+
         const uuids = usersArray && usersArray.map(user => user.uuid);
         const sortedIds = uuids && uuids.sort();
         const attachedFiles = req.files["files"];
