@@ -13,22 +13,22 @@ const upload = multer();
 
 // Configure AWS S3 client
 const s3 = new S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
 });
 
 // Function to calculate file hash
 const calculateFileHash = (buffer) => {
-    return crypto.createHash("sha256").update(buffer).digest("hex");
+  return crypto.createHash("sha256").update(buffer).digest("hex");
 };
 
 router.get("/messageStatus", (req, res) => {
-    const status = {
-        Status: "Message Routes Working",
-    };
+  const status = {
+    Status: "Message Routes Working",
+  };
 
-    res.send(status);
+  res.send(status);
 });
 
 // router.post(
@@ -318,512 +318,550 @@ router.get("/messageStatus", (req, res) => {
 
 // load conversation
 router.get("/conversation/:conversationId", async (req, res) => {
-    const { conversationId } = req.params;
-    const token = req.token;
+  const { conversationId } = req.params;
+  const token = req.token;
 
-    try {
-        // Select all messages matching conversation id and sort by timestamp ascending
-        const messagesResult = await db.query(
-            "SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC",
-            [conversationId]
-        );
+  try {
+    // Select all messages matching conversation id and sort by timestamp ascending
+    const messagesResult = await db.query(
+      "SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC",
+      [conversationId]
+    );
 
-        const messages = messagesResult.rows;
+    const messages = messagesResult.rows;
 
-        // Iterate through messages to find and add attached files
-        for (const message of messages) {
-            const messageId = message.message_id;
+    // Iterate through messages to find and add attached files
+    for (const message of messages) {
+      const messageId = message.message_id;
 
-            // Find file_ids linked to the message
-            const messageFilesResult = await db.query(
-                "SELECT file_id FROM message_files WHERE message_id = $1",
-                [messageId]
-            );
-            const fileIds = messageFilesResult.rows.map((row) => row.file_id);
+      // Find file_ids linked to the message
+      const messageFilesResult = await db.query(
+        "SELECT file_id FROM message_files WHERE message_id = $1",
+        [messageId]
+      );
+      const fileIds = messageFilesResult.rows.map((row) => row.file_id);
 
-            // Find file_paths for each file_id
-            if (fileIds.length > 0) {
-                const files = [];
-                for (const fileId of fileIds) {
-                    // Query the files table to get the file_path for the fileId
-                    const fileQueryResult = await db.query(
-                        "SELECT file_path, file_name FROM files WHERE file_id = $1",
-                        [fileId]
-                    );
-                    if (fileQueryResult.rows.length > 0) {
-                        const fileName = fileQueryResult.rows[0].file_name;
-                        const filePath = fileQueryResult.rows[0].file_path;
-                        // Generate S3 URL for the file
-                        const params = {
-                            Bucket: process.env.S3_BUCKET_NAME,
-                            Key: filePath,
-                            Expires: 3600, // URL expiration time in seconds (adjust as needed)
-                        };
-                        const url = s3.getSignedUrl("getObject", params);
-                        files.push({ fileId, fileName, url });
-                    }
-                }
-                message.files = files;
-            } else {
-                message.files = [];
-            }
-
-            if (message.attached_content?.length > 0) {
-                message.content = await fetchContentItems(
-                    message.attached_content,
-                    token
-                );
-            }
+      // Find file_paths for each file_id
+      if (fileIds.length > 0) {
+        const files = [];
+        for (const fileId of fileIds) {
+          // Query the files table to get the file_path for the fileId
+          const fileQueryResult = await db.query(
+            "SELECT file_path, file_name FROM files WHERE file_id = $1",
+            [fileId]
+          );
+          if (fileQueryResult.rows.length > 0) {
+            const fileName = fileQueryResult.rows[0].file_name;
+            const filePath = fileQueryResult.rows[0].file_path;
+            // Generate S3 URL for the file
+            const params = {
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: filePath,
+              Expires: 3600, // URL expiration time in seconds (adjust as needed)
+            };
+            const url = s3.getSignedUrl("getObject", params);
+            files.push({ fileId, fileName, url });
+          }
         }
+        message.files = files;
+      } else {
+        message.files = [];
+      }
 
-        res.status(200).json(messages);
-    } catch (error) {
-        console.error("Error fetching messages:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+      if (message.attached_content?.length > 0) {
+        message.content = await fetchContentItems(
+          message.attached_content,
+          token
+        );
+      }
     }
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 //delete conversation from database
-router.delete("/conversation/deleteFromDatabase/:conversationId", async (req, res) => {
+router.delete(
+  "/conversation/deleteFromDatabase/:conversationId",
+  async (req, res) => {
     const { conversationId } = req.params;
 
     try {
-        // Start a transaction
-        await db.query("BEGIN");
+      // Start a transaction
+      await db.query("BEGIN");
 
-        // Check if the conversation exists
-        const conversationResult = await db.query(
-            "SELECT 1 FROM conversations WHERE conversation_id = $1",
-            [conversationId]
-        );
+      // Check if the conversation exists
+      const conversationResult = await db.query(
+        "SELECT 1 FROM conversations WHERE conversation_id = $1",
+        [conversationId]
+      );
 
-        if (conversationResult.rowCount === 0) {
-            // Rollback the transaction
-            await db.query("ROLLBACK");
-            return res.status(404).json({ message: "No conversation found with provided conversation ID" });
-        }
+      if (conversationResult.rowCount === 0) {
+        // Rollback the transaction
+        await db.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({
+            message: "No conversation found with provided conversation ID",
+          });
+      }
 
-        // Get file_ids and file_paths before deleting the conversation
-        const filesResult = await db.query(
-            `SELECT f.file_id, f.file_path 
+      // Get file_ids and file_paths before deleting the conversation
+      const filesResult = await db.query(
+        `SELECT f.file_id, f.file_path 
              FROM files f
              INNER JOIN message_files mf ON f.file_id = mf.file_id
              INNER JOIN messages m ON mf.message_id = m.message_id
              WHERE m.conversation_id = $1`,
-            [conversationId]
-        );
+        [conversationId]
+      );
 
-        const fileIds = filesResult.rows.map(row => row.file_id);
+      const fileIds = filesResult.rows.map((row) => row.file_id);
 
-        // Delete the conversation (cascades to delete messages and message_files)
-        await db.query("DELETE FROM conversations WHERE conversation_id = $1", [conversationId]);
+      // Delete the conversation (cascades to delete messages and message_files)
+      await db.query("DELETE FROM conversations WHERE conversation_id = $1", [
+        conversationId,
+      ]);
 
-        // Check if the file_ids are still referenced in the message_files table
-        const unreferencedFilesResult = await db.query(
-            `SELECT f.file_id, f.file_path 
+      // Check if the file_ids are still referenced in the message_files table
+      const unreferencedFilesResult = await db.query(
+        `SELECT f.file_id, f.file_path 
              FROM files f 
              LEFT JOIN message_files mf ON f.file_id = mf.file_id 
              WHERE f.file_id = ANY($1::int[]) AND mf.file_id IS NULL`,
-            [fileIds]
-        );
+        [fileIds]
+      );
 
-        const unreferencedFiles = unreferencedFilesResult.rows;
+      const unreferencedFiles = unreferencedFilesResult.rows;
 
-        // Delete unreferenced files from S3 and the files table
-        for (const file of unreferencedFiles) {
-            const params = {
-                Bucket: process.env.S3_BUCKET_NAME,
-                Key: file.file_path
-            };
+      // Delete unreferenced files from S3 and the files table
+      for (const file of unreferencedFiles) {
+        const params = {
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: file.file_path,
+        };
 
-            // Delete file from S3
-            await s3.deleteObject(params).promise();
+        // Delete file from S3
+        await s3.deleteObject(params).promise();
 
-            // Delete file record from files table
-            await db.query("DELETE FROM files WHERE file_id = $1", [file.file_id]);
-        }
+        // Delete file record from files table
+        await db.query("DELETE FROM files WHERE file_id = $1", [file.file_id]);
+      }
 
-        // Commit transaction
-        await db.query("COMMIT");
+      // Commit transaction
+      await db.query("COMMIT");
 
-        res.status(200).json({ message: "Conversation and related files deleted successfully" });
+      res
+        .status(200)
+        .json({
+          message: "Conversation and related files deleted successfully",
+        });
     } catch (error) {
-        // Rollback the transaction in case of an error
-        await db.query("ROLLBACK");
+      // Rollback the transaction in case of an error
+      await db.query("ROLLBACK");
 
-        res.status(500).json({ message: error.message });
+      res.status(500).json({ message: error.message });
     }
-});
+  }
+);
 
 //----- Adding test support for multiple users in conversations ------------------------------------------
 
 router.post(
-    "/sendMessage",
-    upload.fields([{ name: "files", maxCount: 10 }]),
-    async (req, res) => {
-        const {
-            userId: senderUserId,
-            userFullName: senderFullName,
-            userEmail: senderEmail,
-        } = req;
-        let {
-            conversationId,
-            title,
-            message,
-            attachedContentJson,
-            users,
-        } = req.body;
+  "/sendMessage",
+  upload.fields([{ name: "files", maxCount: 10 }]),
+  async (req, res) => {
+    const {
+      userId: senderUserId,
+      userFullName: senderFullName,
+      userEmail: senderEmail,
+    } = req;
+    let { conversationId, title, message, attachedContentJson, users } =
+      req.body;
 
-        const conversationTitle = title;
-        const messageBody = message === "null" ? "" : message;
-        const usersArray = users && JSON.parse(users);
+    const conversationTitle = title;
+    const messageBody = message === "null" ? "" : message;
+    const usersArray = users && JSON.parse(users);
 
-        // usersArray && usersArray.push({ name: senderFullName, uuid: senderUserId })
-        users = JSON.stringify(usersArray);
+    // usersArray && usersArray.push({ name: senderFullName, uuid: senderUserId })
+    users = JSON.stringify(usersArray);
 
-        console.log(users);
+    const uuids = usersArray && usersArray.map((user) => user.uuid);
+    const sortedIds = uuids && uuids.sort();
+    const attachedFiles = req.files["files"];
+    const attachedContent =
+      attachedContentJson && JSON.parse(attachedContentJson);
 
-        const uuids = usersArray && usersArray.map(user => user.uuid);
-        const sortedIds = uuids && uuids.sort();
-        const attachedFiles = req.files["files"];
-        const attachedContent = attachedContentJson && JSON.parse(attachedContentJson);
+    let convoId = conversationId && Number(conversationId);
 
-        console.log(attachedContent);
+    try {
+      await db.query("BEGIN");
 
-        let convoId = conversationId && Number(conversationId);
+      function stripHTML(html) {
+        const $ = cheerio.load(html);
+        return $("body").text();
+      }
 
-        try {
-            await db.query("BEGIN");
+      let messageBodyStrippedHTML = stripHTML(messageBody);
 
-            function stripHTML(html) {
-                const $ = cheerio.load(html);
-                return $("body").text();
-            }
+      if (!convoId) {
+        for (const user of usersArray) {
+          console.log("Checking if user exists");
+          let userQuery = await db.query(
+            "SELECT * FROM users WHERE user_uuid = $1",
+            [user.uuid]
+          );
 
-            let messageBodyStrippedHTML = stripHTML(messageBody);
-
-            if (!convoId) {
-
-                for (const user of usersArray) {
-
-                    console.log("Checking if user exists");
-                    let userQuery = await db.query(
-                        "SELECT * FROM users WHERE user_uuid = $1",
-                        [user.uuid]
-                    );
-
-                    if (userQuery.rowCount === 0) {
-                        console.log("User does not exist, creating new user");
-                        await db.query(
-                            "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
-                            [user.uuid, user.name]
-                        );
-                    }
-
-                }
-
-                console.log("Checking if conversation exists");
-                const conversation = await db.query(
-                    `SELECT * FROM conversations WHERE title = $1 AND sorted_uuids = $2::uuid[]`,
-                    [conversationTitle, arrayToPostgresArray(sortedIds)]
-                );
-
-                if (conversation.rowCount === 0) {
-                    console.log("Conversation does not exist, creating new conversation");
-                    const newConversation = await db.query(
-                        "INSERT INTO conversations (users, title, latest_message, latest_message_sender, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING conversation_id",
-                        [
-                            users,
-                            conversationTitle,
-                            messageBodyStrippedHTML,
-                            senderUserId,
-                            1,
-                            sortedIds
-                        ]
-                    );
-
-                    convoId = newConversation.rows[0].conversation_id;
-                } else {
-                    console.log("Conversation exists");
-                    convoId = conversation.rows[0].conversation_id;
-
-                    console.log("Updating latest message in conversation");
-                    await db.query(
-                        "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, deleted_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
-                        [messageBody, senderUserId, [], convoId]
-                    );
-                }
-            } else {
-                console.log("Checking if conversation with conversationId exists");
-
-                const conversation = await db.query(
-                    "SELECT * FROM conversations WHERE conversation_id = $1",
-                    [convoId]
-                );
-
-                if (conversation.rowCount === 0) {
-                    console.log("Conversation with supplied conversation ID does not exist");
-                    res.status(500).json({ error: "Conversation with supplied conversation ID does not exist" });
-                } else {
-                    console.log("Conversation found");
-                }
-
-                console.log("Updating latest message in conversation");
-                await db.query(
-                    "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, deleted_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
-                    [messageBody, senderUserId, [], convoId]
-                );
-            }
-
-            console.log("Inserting message");
-            const messageResult = await db.query(
-                "INSERT INTO messages (conversation_id, sender_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING message_id",
-                [
-                    convoId,
-                    senderUserId,
-                    messageBody,
-                    attachedContent,
-                ]
+          if (userQuery.rowCount === 0) {
+            console.log("User does not exist, creating new user");
+            await db.query(
+              "INSERT INTO users (user_uuid, name, created_at) VALUES ($1, $2, NOW())",
+              [user.uuid, user.name]
             );
-            const messageId = messageResult.rows[0].message_id;
-
-            if (attachedFiles && attachedFiles.length > 0) {
-                console.log("Processing attached files");
-                for (const file of attachedFiles) {
-                    const hash = crypto
-                        .createHash("sha256")
-                        .update(file.buffer)
-                        .digest("hex");
-                    const s3Key = `uploads/${hash}-${file.originalname}`;
-
-                    console.log("Uploading file to S3:", s3Key);
-                    await s3.upload({
-                        Bucket: process.env.S3_BUCKET_NAME,
-                        Key: s3Key,
-                        Body: file.buffer,
-                        ContentType: file.mimetype,
-                    }).promise();
-
-                    console.log("Inserting file metadata into files table");
-                    const fileResult = await db.query(
-                        "INSERT INTO files (hash, file_path, file_name, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (hash) DO NOTHING RETURNING file_id",
-                        [hash, s3Key, file.originalname]
-                    );
-
-                    let fileId;
-                    if (fileResult.rows.length > 0) {
-                        fileId = fileResult.rows[0].file_id;
-                    } else {
-                        const existingFile = await db.query(
-                            "SELECT file_id FROM files WHERE hash = $1",
-                            [hash]
-                        );
-                        fileId = existingFile.rows[0].file_id;
-                    }
-
-                    console.log("Linking file to message in message_files table");
-                    await db.query(
-                        "INSERT INTO message_files (message_id, file_id, created_at) VALUES ($1, $2, NOW())",
-                        [messageId, fileId]
-                    );
-                }
-            }
-
-            await db.query("COMMIT");
-            res.status(201).json({ message: "Message sent successfully", id: convoId });
-        } catch (error) {
-            await db.query("ROLLBACK");
-            console.error("Error sending message:", error);
-            res.status(500).json({ error: "Internal Server Error" });
+          }
         }
-    }
-);
 
+        console.log("Checking if conversation exists");
+        const conversation = await db.query(
+          `SELECT * FROM conversations WHERE title = $1 AND sorted_uuids = $2::uuid[]`,
+          [conversationTitle, arrayToPostgresArray(sortedIds)]
+        );
+
+        if (conversation.rowCount === 0) {
+          console.log("Conversation does not exist, creating new conversation");
+          const newConversation = await db.query(
+            "INSERT INTO conversations (users, title, latest_message, latest_message_sender, length, sorted_uuids, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING conversation_id",
+            [
+              users,
+              conversationTitle,
+              messageBodyStrippedHTML,
+              senderUserId,
+              1,
+              sortedIds,
+            ]
+          );
+
+          convoId = newConversation.rows[0].conversation_id;
+        } else {
+          console.log("Conversation exists");
+          convoId = conversation.rows[0].conversation_id;
+
+          console.log("Updating latest message in conversation");
+          await db.query(
+            "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, deleted_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+            [messageBody, senderUserId, [], convoId]
+          );
+        }
+      } else {
+        console.log("Checking if conversation with conversationId exists");
+
+        const conversation = await db.query(
+          "SELECT * FROM conversations WHERE conversation_id = $1",
+          [convoId]
+        );
+
+        if (conversation.rowCount === 0) {
+          console.log(
+            "Conversation with supplied conversation ID does not exist"
+          );
+          res
+            .status(500)
+            .json({
+              error:
+                "Conversation with supplied conversation ID does not exist",
+            });
+        } else {
+          console.log("Conversation found");
+        }
+
+        console.log("Updating latest message in conversation");
+        await db.query(
+          "UPDATE conversations SET latest_message = $1, latest_message_sender = $2, read_by = $3, deleted_by = $3, updated_at = NOW(), length = length + 1 WHERE conversation_id = $4",
+          [messageBody, senderUserId, [], convoId]
+        );
+      }
+
+      console.log("Inserting message");
+      const messageResult = await db.query(
+        "INSERT INTO messages (conversation_id, sender_uuid, message_body, attached_content, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING message_id",
+        [convoId, senderUserId, messageBody, attachedContent]
+      );
+      const messageId = messageResult.rows[0].message_id;
+
+      if (attachedFiles && attachedFiles.length > 0) {
+        console.log("Processing attached files");
+        for (const file of attachedFiles) {
+          const hash = crypto
+            .createHash("sha256")
+            .update(file.buffer)
+            .digest("hex");
+          const s3Key = `uploads/${hash}-${file.originalname}`;
+
+          console.log("Uploading file to S3:", s3Key);
+          await s3
+            .upload({
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: s3Key,
+              Body: file.buffer,
+              ContentType: file.mimetype,
+            })
+            .promise();
+
+          console.log("Inserting file metadata into files table");
+          const fileResult = await db.query(
+            "INSERT INTO files (hash, file_path, file_name, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (hash) DO NOTHING RETURNING file_id",
+            [hash, s3Key, file.originalname]
+          );
+
+          let fileId;
+          if (fileResult.rows.length > 0) {
+            fileId = fileResult.rows[0].file_id;
+          } else {
+            const existingFile = await db.query(
+              "SELECT file_id FROM files WHERE hash = $1",
+              [hash]
+            );
+            fileId = existingFile.rows[0].file_id;
+          }
+
+          console.log("Linking file to message in message_files table");
+          await db.query(
+            "INSERT INTO message_files (message_id, file_id, created_at) VALUES ($1, $2, NOW())",
+            [messageId, fileId]
+          );
+        }
+      }
+
+      await db.query("COMMIT");
+      res
+        .status(201)
+        .json({ message: "Message sent successfully", id: convoId });
+    } catch (error) {
+      await db.query("ROLLBACK");
+      console.error("Error sending message:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+);
 
 // read message using read_by uuid array
 router.post("/readMessage/:conversationId", async (req, res) => {
-    const { userId } = req; // Assuming userId is available in req object
-    const { conversationId } = req.params;
+  const { userId } = req; // Assuming userId is available in req object
+  const { conversationId } = req.params;
 
-    try {
-        // Fetch the current read_by array
-        const { rows } = await db.query(
-            "SELECT read_by FROM conversations WHERE conversation_id = $1",
-            [conversationId]
-        );
+  try {
+    // Fetch the current read_by array
+    const { rows } = await db.query(
+      "SELECT read_by FROM conversations WHERE conversation_id = $1",
+      [conversationId]
+    );
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: "Conversation not found" });
-        }
-
-        let readBy = rows[0].read_by || [];
-
-        // Check if userId is already in the read_by array
-        if (!readBy.includes(userId)) {
-            readBy.push(userId);
-
-            // Update the read_by array in the database
-            await db.query(
-                "UPDATE conversations SET read_by = $1 WHERE conversation_id = $2",
-                [readBy, conversationId]
-            );
-        }
-
-        res.status(200).json({ message: "Conversation marked as read" });
-    } catch (error) {
-        console.error("Error marking conversation as read:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Conversation not found" });
     }
+
+    let readBy = rows[0].read_by || [];
+
+    // Check if userId is already in the read_by array
+    if (!readBy.includes(userId)) {
+      readBy.push(userId);
+
+      // Update the read_by array in the database
+      await db.query(
+        "UPDATE conversations SET read_by = $1 WHERE conversation_id = $2",
+        [readBy, conversationId]
+      );
+    }
+
+    res.status(200).json({ message: "Conversation marked as read" });
+  } catch (error) {
+    console.error("Error marking conversation as read:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // messages for mobile view
 router.get("/conversations", async (req, res) => {
-    const { userId } = req;
+  const { userId } = req;
 
-    try {
-        // Select all conversations where the userId is included in the users array
-        const conversations = await db.query(
-            `SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))`,
-            [userId]
-        );
+  try {
+    // Select all conversations where the userId is included in the users array
+    const conversations = await db.query(
+      `SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))`,
+      [userId]
+    );
 
-        // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = addReadField(conversations, userId);
+    // Modify the conversations to mark them as read if the user was the last sender
+    const modifiedConversations = addReadField(conversations, userId);
 
-        res.status(200).json(modifiedConversations);
-    } catch (error) {
-        console.error("Error fetching inbox:", error);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
+    res.status(200).json(modifiedConversations);
+  } catch (error) {
+    console.error("Error fetching inbox:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// single conversation meta
+router.post("/conversation/info/:conversationId", async (req, res) => {
+  const { userId } = req; // Assuming userId is available in req object
+  const { conversationId } = req.params;
+
+  try {
+    // Select all conversations where the userId is included in the users array
+    const conversations = await db.query(
+      `SELECT * 
+             FROM conversations 
+             WHERE conversation_id = $1`,
+      [conversationId]
+    );
+
+    // Modify the conversations to mark them as read if the user was the last sender
+    const modifiedConversations = addReadField(conversations, userId);
+
+    res.status(200).json(modifiedConversations);
+  } catch (error) {
+    console.error("Error fetching inbox:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // inbox
 router.get("/inbox", async (req, res) => {
-    const { userId } = req;
+  const { userId } = req;
 
-    try {
-        // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
-        const conversations = await db.query(
-            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND latest_message_sender = $1) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))",
-            [userId]
-        );
+  try {
+    // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
+    const conversations = await db.query(
+      "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND NOT (length = 1 AND latest_message_sender = $1) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))",
+      [userId]
+    );
 
-        // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = addReadField(conversations, userId);
+    // Modify the conversations to mark them as read if the user was the last sender
+    const modifiedConversations = addReadField(conversations, userId);
 
-        res.status(200).json(modifiedConversations);
-    } catch (error) {
-        console.error("Error fetching inbox:", error);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
+    res.status(200).json(modifiedConversations);
+  } catch (error) {
+    console.error("Error fetching inbox:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // sent
 router.get("/sent", async (req, res) => {
-    const { userId } = req;
+  const { userId } = req;
 
-    try {
-        // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
-        const conversations = await db.query(
-            "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (length = 1 AND latest_message_sender = $1) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))",
-            [userId]
-        );
+  try {
+    // Select all conversations where the userId is in sorted_uuids and isnt in 'sent'
+    const conversations = await db.query(
+      "SELECT * FROM conversations WHERE $1 = ANY(sorted_uuids) AND (length = 1 AND latest_message_sender = $1) AND (deleted_by IS NULL OR NOT $1 = ANY(deleted_by))",
+      [userId]
+    );
 
-        // Modify the conversations to mark them as read if the user was the last sender
-        const modifiedConversations = addReadField(conversations, userId);
+    // Modify the conversations to mark them as read if the user was the last sender
+    const modifiedConversations = addReadField(conversations, userId);
 
-        res.status(200).json(modifiedConversations);
-    } catch (error) {
-        console.error("Error fetching inbox:", error);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
+    res.status(200).json(modifiedConversations);
+  } catch (error) {
+    console.error("Error fetching inbox:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // delete conversation for user
-router.delete("/conversation/deleteForUser/:conversationId", async (req, res) => {
+router.delete(
+  "/conversation/deleteForUser/:conversationId",
+  async (req, res) => {
     const { userId } = req;
     const { conversationId } = req.params;
 
     try {
-        // Start a transaction
-        await db.query("BEGIN");
+      // Start a transaction
+      await db.query("BEGIN");
 
-        // Check if the conversation exists
-        const conversationResult = await db.query(
-            "SELECT 1 FROM conversations WHERE conversation_id = $1",
-            [conversationId]
-        );
+      // Check if the conversation exists
+      const conversationResult = await db.query(
+        "SELECT 1 FROM conversations WHERE conversation_id = $1",
+        [conversationId]
+      );
 
-        if (conversationResult.rowCount === 0) {
-            // Rollback the transaction
-            await db.query("ROLLBACK");
-            return res.status(404).json({ message: "No conversation found with provided conversation ID" });
-        }
-
-        await db.query(
-            "UPDATE conversations SET deleted_by = array_append(deleted_by, $1) WHERE conversation_id = $2",
-            [userId, conversationId]
-        );
-
-        // Commit transaction
-        await db.query("COMMIT");
-
-        res.status(200).json({ message: "Conversation deleted for user" });
-    } catch (error) {
-        // Rollback the transaction in case of an error
+      if (conversationResult.rowCount === 0) {
+        // Rollback the transaction
         await db.query("ROLLBACK");
-        res.status(500).json({ message: error.message });
+        return res
+          .status(404)
+          .json({
+            message: "No conversation found with provided conversation ID",
+          });
+      }
+
+      await db.query(
+        "UPDATE conversations SET deleted_by = array_append(deleted_by, $1) WHERE conversation_id = $2",
+        [userId, conversationId]
+      );
+
+      // Commit transaction
+      await db.query("COMMIT");
+
+      res.status(200).json({ message: "Conversation deleted for user" });
+    } catch (error) {
+      // Rollback the transaction in case of an error
+      await db.query("ROLLBACK");
+      res.status(500).json({ message: error.message });
     }
-});
+  }
+);
 
 // Helper Functions
 
 async function fetchContentItems(contentIds, token) {
-    try {
-        const response = await axios.post(
-            "https://content-microservice-stg-613843a26cb6.herokuapp.com/content/ids",
-            {
-                contentIds: contentIds,
-            },
-            {
-                headers: {
-                    Authorization: token,
-                    "Content-Type": "application/json",
-                },
-            }
-        );
+  try {
+    const response = await axios.post(
+      "https://content-microservice-stg-613843a26cb6.herokuapp.com/content/ids",
+      {
+        contentIds: contentIds,
+      },
+      {
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-        if (response.data.length > 0) {
-            return response.data;
-        } else {
-            console.log("No content items found.");
-        }
-    } catch (error) {
-        console.error(
-            "Error fetching content items:",
-            error.response ? error.response.data : error.message
-        );
+    if (response.data.length > 0) {
+      return response.data;
+    } else {
+      console.log("No content items found.");
     }
+  } catch (error) {
+    console.error(
+      "Error fetching content items:",
+      error.response ? error.response.data : error.message
+    );
+  }
 }
 
 function arrayToPostgresArray(array) {
-    // Join the elements with commas and wrap them in curly braces
-    const correctedArray = `{${array.join(',')}}`;
-    return correctedArray;
+  // Join the elements with commas and wrap them in curly braces
+  const correctedArray = `{${array.join(",")}}`;
+  return correctedArray;
 }
 
 function addReadField(conversations, userId) {
-    let newConversationsArray = conversations.rows.map((conversation) => {
-        if (
-            conversation.read_by?.includes(userId) ||
-            conversation.latest_message_sender === userId
-        ) {
-            conversation.read = true;
-        }
-        return conversation;
-    });
+  let newConversationsArray = conversations.rows.map((conversation) => {
+    if (
+      conversation.read_by?.includes(userId) ||
+      conversation.latest_message_sender === userId
+    ) {
+      conversation.read = true;
+    }
+    return conversation;
+  });
 
-    return newConversationsArray;
+  return newConversationsArray;
 }
 
 module.exports = router;
