@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+import ZALA_BASE_URL from "config.js";
 
 const messageRoutes = require("./messageRoutes");
 
