@@ -46,7 +46,7 @@ app.use(async (req, res, next) => {
         try {
             // Make a POST request to the external API with the GraphQL query
             const response = await axios.post(
-                "https://zala-stg.herokuapp.com/gql",
+                `${ZALA_BASE_URL}/gql`,
                 {
                     query: `
                         query {
